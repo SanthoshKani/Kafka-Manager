@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: ${KAFKA_MANAGER_LOCAL_JDBC_URL:jdbc:postgresql://localhost:5432/kafkamanager}
+    username: ${KAFKA_MANAGER_LOCAL_DB_USERNAME:kafkamanager}
+    password: ${KAFKA_MANAGER_LOCAL_DB_PASSWORD:kafkamanager}
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+logging:
+  level:
+    com.opentext.security.analytics.messagehub.kafkamanager: DEBUG
+app:
+  security:
+    master-key-base64: ${KAFKA_MANAGER_MASTER_KEY_BASE64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+    basic-auth:
+      username: ${KAFKA_MANAGER_BASIC_AUTH_USERNAME:admin}
+      password: ${KAFKA_MANAGER_BASIC_AUTH_PASSWORD:admin}
+    oauth2-resource-server:
+      issuer-uri: ${KAFKA_MANAGER_OAUTH2_ISSUER_URI:}
+      jwk-set-uri: ${KAFKA_MANAGER_OAUTH2_JWK_SET_URI:}

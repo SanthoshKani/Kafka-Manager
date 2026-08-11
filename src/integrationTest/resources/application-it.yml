@@ -1,0 +1,17 @@
+server:
+  port: 0
+
+logging:
+  level:
+    com.opentext.security.analytics.messagehub.kafkamanager: INFO
+
+app:
+  operations:
+    poll-interval: 1s
+  security:
+    basic-auth:
+      username: ${KAFKA_MANAGER_IT_BASIC_AUTH_USERNAME:admin}
+      password: ${KAFKA_MANAGER_IT_BASIC_AUTH_PASSWORD:admin}
+    oauth2-resource-server:
+      issuer-uri: ${KAFKA_MANAGER_IT_OAUTH2_ISSUER_URI:}
+      jwk-set-uri: ${KAFKA_MANAGER_IT_OAUTH2_JWK_SET_URI:}

@@ -1,0 +1,267 @@
+openapi: 3.0.3
+info:
+  title: Kafka Manager API
+  version: 1.0.0
+  description: KRaft-native Kafka cluster manager and observability API.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /clusters:
+    get:
+      summary: List clusters
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Register cluster
+      responses:
+        '201':
+          description: Created
+        '422':
+          $ref: '#/components/responses/Problem'
+  /clusters/{id}:
+    get:
+      summary: Get cluster
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200':
+          description: OK
+        '404':
+          $ref: '#/components/responses/Problem'
+    patch:
+      summary: Update cluster
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete cluster
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '204':
+          description: No Content
+  /clusters/{clusterId}/topics:
+    get:
+      summary: List topics
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200': { description: OK }
+  /clusters/{clusterId}/topics/{topicName}:
+    get:
+      summary: Describe topic
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: topicName
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /clusters/{clusterId}/topics/{topicName}/configs:
+    get:
+      summary: Describe topic configs
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: topicName
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Incrementally alter topic configs
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: topicName
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/topics/{topicName}/partitions:
+    post:
+      summary: Increase topic partitions
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: topicName
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/consumer-groups:
+    get:
+      summary: List consumer groups
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200': { description: OK }
+  /clusters/{clusterId}/consumer-groups/{groupId}:
+    delete:
+      summary: Delete consumer group
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/consumer-groups/{groupId}/offsets:
+    post:
+      summary: Alter consumer group offsets
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/consumer-groups/{groupId}/members/remove:
+    post:
+      summary: Remove consumer group members
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/brokers:
+    get:
+      summary: List brokers
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200': { description: OK }
+  /clusters/{clusterId}/actions/leader-election:
+    post:
+      summary: Trigger leader election
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/actions/partition-reassignments:
+    get:
+      summary: List partition reassignments
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200': { description: OK }
+    put:
+      summary: Alter partition reassignments
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/actions/log-dirs:
+    get:
+      summary: Describe broker log dirs
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+        - name: brokerIds
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: integer
+      responses:
+        '200': { description: OK }
+    put:
+      summary: Alter replica log dirs
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '204': { description: No Content }
+  /clusters/{clusterId}/operations:
+    get:
+      summary: List operations
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Submit operation
+      parameters:
+        - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '202': { description: Accepted }
+components:
+  parameters:
+    ClusterId:
+      name: clusterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+        errorCode: { type: string }
+        correlationId: { type: string }
+        timestamp: { type: string, format: date-time }

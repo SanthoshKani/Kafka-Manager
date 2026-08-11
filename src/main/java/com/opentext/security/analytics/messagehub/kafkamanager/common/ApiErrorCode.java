@@ -1,0 +1,16 @@
+package com.opentext.security.analytics.messagehub.kafkamanager.common;
+
+public enum ApiErrorCode {
+    VALIDATION_ERROR,
+    NOT_FOUND,
+    CONFLICT,
+    INVALID_STATE,
+    KAFKA_TIMEOUT,
+    KAFKA_CONNECTIVITY_FAILURE,
+    KAFKA_AUTHENTICATION_FAILURE,
+    KAFKA_AUTHORIZATION_FAILURE,
+    KAFKA_PROTOCOL_FAILURE,
+    DEPENDENCY_FAILURE,
+    RATE_LIMITED,
+    OPERATION_FAILED
+}

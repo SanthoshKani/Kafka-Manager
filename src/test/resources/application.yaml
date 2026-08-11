@@ -1,0 +1,37 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+app:
+  service-name: kafka-manager-test
+  rate-limit:
+    enabled: true
+    capacity: 35
+    refill-period: 1m
+    key-header: X-Client-Id
+  security:
+    master-key-base64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    basic-auth:
+      username: testuser
+      password: testpass
+    oauth2-resource-server:
+      issuer-uri: ""
+      jwk-set-uri: ""
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      kafkaAdmin:
+        register-health-indicator: true
+        sliding-window-size: 5
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        event-consumer-buffer-size: 10
+        record-exceptions:
+          - org.apache.kafka.common.errors.AuthenticationException
+          - org.apache.kafka.common.errors.AuthorizationException
+          - org.apache.kafka.common.errors.TimeoutException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException

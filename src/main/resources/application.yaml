@@ -1,0 +1,92 @@
+spring:
+  application:
+    name: Kafka-Manager
+  devtools:
+    restart:
+      enabled: false
+  jackson:
+    default-property-inclusion: non_null
+  task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 16
+        queue-capacity: 100
+      thread-name-prefix: kafka-mgr-task-
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: kafka-mgr-scheduling-
+resilience4j:
+  circuitbreaker:
+    instances:
+      kafkaAdmin:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        event-consumer-buffer-size: 10
+        record-exceptions:
+          - org.apache.kafka.common.errors.AuthenticationException
+          - org.apache.kafka.common.errors.AuthorizationException
+          - org.apache.kafka.common.errors.TimeoutException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+
+server:
+  port: ${SERVER_PORT:8080}
+management:
+  endpoints:
+    access:
+      default: none
+    web:
+      base-path: /management
+      exposure:
+        include: health,info,prometheus,loggers,threaddump,env,configprops
+  endpoint:
+    health:
+      access: read-only
+      probes:
+        enabled: true
+      show-details: always
+    prometheus:
+      access: read-only
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+logging:
+  level:
+    root: INFO
+    com.opentext.security.analytics.messagehub.kafkamanager: INFO
+    io.github.resilience4j: DEBUG
+
+app:
+  service-name: kafka-manager
+  rate-limit:
+    enabled: true
+    capacity: 300
+    refill-period: 1m
+    key-header: X-Client-Id
+  security:
+    master-key-base64: ${KAFKA_MANAGER_MASTER_KEY_BASE64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+    basic-auth:
+      username: ${KAFKA_MANAGER_BASIC_AUTH_USERNAME:admin}
+      password: ${KAFKA_MANAGER_BASIC_AUTH_PASSWORD:admin}
+    oauth2-resource-server:
+      issuer-uri: ${KAFKA_MANAGER_OAUTH2_ISSUER_URI:}
+      jwk-set-uri: ${KAFKA_MANAGER_OAUTH2_JWK_SET_URI:}
+  admin:
+    cache-size: ${KAFKA_MANAGER_ADMIN_CACHE_SIZE:64}
+    default-request-timeout: 5s
+    default-operation-timeout: 30s
+    connection-validation-timeout: 5s
+  operations:
+    poll-interval: 15s
+    lease-duration: 60s
+  cluster-registry:
+    max-page-size: 100
+    max-client-properties: 32

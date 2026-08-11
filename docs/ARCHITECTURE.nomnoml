@@ -1,0 +1,152 @@
+# Kafka Manager - Architecture Diagram
+
+```nomnoml
+# Styles
+<style>
+  .package { fill: #f0f4f8; stroke: #2c3e50; }
+  .controller { fill: #e8f5e9; stroke: #2e7d32; }
+  .service { fill: #fff3e0; stroke: #ef6c00; }
+  .repository { fill: #fce4ec; stroke: #c2185b; }
+  .entity { fill: #e3f2fd; stroke: #1565c0; }
+  .config { fill: #f3e5f5; stroke: #7b1fa2; }
+  .external { fill: #fffde7; stroke: #fbc02d; }
+</style>
+
+# Main Application
+[KafkaManagerApplication|main()|.package]
+
+# Configuration Layer
+[config/KafkaManagerProperties|app.* properties|.config]
+[config/SecurityConfig|filter chain, JWT, headers|.config]
+[config/RateLimitingConfig|Bucket4j filter|.config]
+[config/AsyncConfiguration|ThreadPoolTaskExecutor|.config]
+[config/CorrelationIdFilter|MDC correlation ID|.config]
+[config/JacksonConfig|ObjectMapper|.config]
+[config/OpenApiConfig|Swagger UI|.config]
+
+# Common/Shared
+[common/ApiProblemAdvice|RFC 9457 errors|.service]
+[common/ProblemResponseWriter|error formatting|.service]
+[common/ApiException|base exception|.service]
+
+# Cluster Registry Domain
+[clusterregistry/domain/ClusterEntity|JPA entity\nSSL/SASL config|.entity]
+[clusterregistry/domain/SecretEntity|encrypted secrets|.entity]
+[clusterregistry/domain/ClusterRepository|JPA repo|.repository]
+[clusterregistry/domain/SecretRepository|JPA repo|.repository]
+
+# Cluster Registry Services
+[clusterregistry/service/ClusterRegistryService|CRUD, validation|.service]
+[clusterregistry/service/ClusterAdminService|reassign, elect|.service]
+[clusterregistry/service/SecretCipherService|AES-256-GCM|.service]
+[clusterregistry/service/SecretStoreService|secret persistence|.service]
+
+# Cluster Registry API
+[clusterregistry/api/ClusterController|REST: CRUD clusters|.controller]
+[clusterregistry/api/ClusterAdminController|REST: admin ops|.controller]
+[clusterregistry/api/RegisterClusterRequest|DTO|.package]
+[clusterregistry/api/UpdateClusterRequest|DTO|.package]
+[clusterregistry/api/ClusterDetailResponse|DTO|.package]
+
+# Kafka Admin Layer
+[kafkaadmin/AdminClientRegistry|Caffeine cache\nAdminClient builder|.service]
+[kafkaadmin/KafkaAdminExecutionService|Resilience4j circuit breaker|.service]
+[kafkaadmin/KafkaClientPropertyPolicyService|property validation|.service]
+
+# Topic Management
+[topics/api/TopicController|REST: topics|.controller]
+[topics/api/TopicCreateRequest|DTO|.package]
+[topics/api/TopicDetailResponse|DTO|.package]
+[topics/service/TopicService|CRUD, queries|.service]
+[topics/service/TopicMutationService|config, partitions|.service]
+
+# Broker Management
+[brokers/api/BrokerController|REST: brokers|.controller]
+[brokers/service/BrokerService|broker ops|.service]
+
+# Consumer Group Management
+[consumergroups/api/ConsumerGroupController|REST: consumer groups|.controller]
+[consumergroups/service/ConsumerGroupService|group ops|.service]
+
+# Other Domains
+[acls/api/AclController|REST: ACLs|.controller]
+[acls/service/AclService|ACL ops|.service]
+[scram/api/ScramController|REST: SCRAM|.controller]
+[scram/service/ScramService|SCRAM ops|.service]
+[delegationtokens/api/DelegationTokenController|REST: tokens|.controller]
+[delegationtokens/service/DelegationTokenService|token ops|.service]
+[metadataquorum/api/MetadataQuorumController|REST: KRaft|.controller]
+[metadataquorum/service/MetadataQuorumService|quorum ops|.service]
+[clientmetrics/api/ClientMetricsController|REST: metrics|.controller]
+[clientmetrics/service/ClientMetricsService|metrics ops|.service]
+[operations/api/OperationsController|REST: operations|.controller]
+[operations/service/OperationsService|operation tracking|.service]
+
+# External Systems
+[PostgreSQL|Database|.external]
+[Kafka Cluster|Brokers + Controllers|.external]
+[Auth Server|OAuth2/OIDC|.external]
+
+# Relationships
+KafkaManagerApplication --> KafkaManagerProperties
+KafkaManagerApplication --> SecurityConfig
+KafkaManagerApplication --> RateLimitingConfig
+KafkaManagerApplication --> AsyncConfiguration
+KafkaManagerApplication --> CorrelationIdFilter
+KafkaManagerApplication --> JacksonConfig
+KafkaManagerApplication --> OpenApiConfig
+
+SecurityConfig --> Auth Server
+RateLimitingConfig --> AsyncConfiguration
+
+ClusterController --> ClusterRegistryService
+ClusterAdminController --> ClusterAdminService
+ClusterRegistryService --> ClusterRepository
+ClusterRegistryService --> SecretStoreService
+ClusterRegistryService --> SecretCipherService
+ClusterAdminService --> AdminClientRegistry
+
+SecretStoreService --> SecretRepository
+SecretStoreService --> SecretCipherService
+SecretCipherService --> KafkaManagerProperties
+
+AdminClientRegistry --> ClusterRegistryService
+AdminClientRegistry --> SecretStoreService
+AdminClientRegistry --> KafkaClientPropertyPolicyService
+AdminClientRegistry --> KafkaAdminExecutionService
+AdminClientRegistry --> Kafka Cluster
+
+KafkaAdminExecutionService --> AdminClientRegistry
+
+TopicController --> TopicService
+TopicController --> TopicMutationService
+TopicService --> AdminClientRegistry
+TopicMutationService --> AdminClientRegistry
+
+BrokerController --> BrokerService
+BrokerService --> AdminClientRegistry
+
+ConsumerGroupController --> ConsumerGroupService
+ConsumerGroupService --> AdminClientRegistry
+
+AclController --> AclService
+AclService --> AdminClientRegistry
+
+ScramController --> ScramService
+ScramService --> AdminClientRegistry
+
+DelegationTokenController --> DelegationTokenService
+DelegationTokenService --> AdminClientRegistry
+
+MetadataQuorumController --> MetadataQuorumService
+MetadataQuorumService --> AdminClientRegistry
+
+ClientMetricsController --> ClientMetricsService
+ClientMetricsService --> AdminClientRegistry
+
+OperationsController --> OperationsService
+OperationsService --> AdminClientRegistry
+
+ClusterRepository --> PostgreSQL
+SecretRepository --> PostgreSQL
+```
