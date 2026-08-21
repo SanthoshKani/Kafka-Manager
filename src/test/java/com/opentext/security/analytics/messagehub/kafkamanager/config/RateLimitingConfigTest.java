@@ -19,7 +19,6 @@ class RateLimitingConfigTest {
                 new KafkaManagerProperties(
                         "test",
                         new KafkaManagerProperties.Security(
-                                "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
                                 new KafkaManagerProperties.BasicAuth("testuser", "testpass"),
                                 new KafkaManagerProperties.OAuth2ResourceServer("", "")),
                         new KafkaManagerProperties.Admin(

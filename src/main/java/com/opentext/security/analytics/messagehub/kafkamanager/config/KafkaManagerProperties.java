@@ -16,7 +16,7 @@ public record KafkaManagerProperties(
         RateLimit rateLimit) {
 
     public record Security(
-            @NotBlank String masterKeyBase64, BasicAuth basicAuth, OAuth2ResourceServer oauth2ResourceServer) {}
+            BasicAuth basicAuth, OAuth2ResourceServer oauth2ResourceServer) {}
 
     public record BasicAuth(String username, String password) {}
 

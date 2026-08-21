@@ -61,7 +61,7 @@ KRaft-native Kafka cluster manager built with Spring Boot, Spring MVC, Spring Se
 ## Run Locally
 
 ```bash
-docker compose up --build
+$env:SPRING_PROFILES_ACTIVE = 'local'; docker compose up --build
 ```
 
 App: `http://localhost:8080`
@@ -72,24 +72,25 @@ OpenAPI: `http://localhost:8080/api-docs` (or `openapi.yaml` in repo root)
 
 ## Profiles
 
-  - `default`: Application runtime with a single Kafka cluster configured from environment/system properties.
+  - `local`: Open HTTP profile for IDE and docker-compose development. Connects to Kafka over PLAINTEXT only and does not configure certs, keystores, or truststores.
+  - `prod`: Secure profile with Basic Auth / OAuth2 Resource Server, SSL or mTLS Kafka connectivity, and rate limiting enabled. This is the default fallback when no profile is set.
   - `it`: Compose-backed integration profile for live Kafka validation
 
 ## Configuration
 
-Key environment variables (see `application.yaml` for full list):
+Key environment variables (see `application-local.yml` and `application-prod.yml` for full list):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KAFKA_MANAGER_MASTER_KEY_BASE64` | (dev default) | AES master key for encrypting cluster secrets |
-| `KAFKA_MANAGER_BASIC_AUTH_USERNAME` | `admin` | Basic Auth username |
-| `KAFKA_MANAGER_BASIC_AUTH_PASSWORD` | `admin` | Basic Auth password |
+| `SPRING_PROFILES_ACTIVE` | `local` | Selects the runtime profile (`local` or `prod`) |
+| `KAFKA_MANAGER_BASIC_AUTH_USERNAME` | `admin` | Production Basic Auth username |
+| `KAFKA_MANAGER_BASIC_AUTH_PASSWORD` | `admin` | Production Basic Auth password |
 | `KAFKA_MANAGER_OAUTH2_ISSUER_URI` | - | OIDC issuer for OAuth2 Resource Server |
 | `KAFKA_MANAGER_OAUTH2_JWK_SET_URI` | - | JWK set URI for OAuth2 Resource Server |
-| `BOOTSTRAP_SERVERS_CONFIG` | - | Kafka bootstrap servers for the singleton AdminClient |
-| `KAFKA_ADMIN_SECURITY_PROTOCOL` | `PLAINTEXT` | Kafka client protocol (`PLAINTEXT`, `SSL`) |
-| `javax.net.ssl.keyStore`, `javax.net.ssl.trustStore` | - | Kafka client keystore/truststore file paths supplied by the container entrypoint |
-| `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStorePassword` | - | Kafka client keystore/truststore passwords |
+| `BOOTSTRAP_SERVERS_CONFIG` | `localhost:19092,localhost:29092,localhost:39092` (local) | Kafka bootstrap servers for the singleton AdminClient |
+| `KAFKA_ADMIN_SECURITY_PROTOCOL` | `PLAINTEXT` in local, `SSL` in prod | Kafka client protocol |
+| `javax.net.ssl.keyStore`, `javax.net.ssl.trustStore` | - | Production Kafka client keystore/truststore file paths |
+| `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStorePassword` | - | Production Kafka client keystore/truststore passwords |
 
 ### Rate Limiting
 - Enabled by default (`app.rate-limit.enabled=true`)
@@ -106,18 +107,14 @@ Key environment variables (see `application.yaml` for full list):
 
 ## Security
 
-- **Basic Authentication**: HTTP Basic Auth for username/password authentication (configured via `KAFKA_MANAGER_BASIC_AUTH_USERNAME` and `KAFKA_MANAGER_BASIC_AUTH_PASSWORD`)
-- **OAuth2 Resource Server**: Validates JWT Bearer tokens via issuer-uri or JWK set URI (configured via `KAFKA_MANAGER_OAUTH2_ISSUER_URI` or `KAFKA_MANAGER_OAUTH2_JWK_SET_URI`)
-- **Application secrets encrypted**: Sensitive config is encrypted at rest with AES-GCM (master key from `KAFKA_MANAGER_MASTER_KEY_BASE64`)
-- **Actuator endpoints**: Secured, read-only access for health/info/prometheus
-- **CORS**: Disabled by default; configure via `SecurityConfig` if needed
-- **Rate limiting**: Bucket4j token bucket (300 req/min per `X-Client-Id` header, falls back to remote address)
+- **Local profile**: No HTTP authentication, no rate limiting, no bearer security scheme in OpenAPI, and no Kafka SSL material.
+- **Production profile**: HTTP Basic Auth and OAuth2 Resource Server are enabled, actuator endpoints remain secured, and Kafka AdminClient SSL/mTLS settings are read from production profile properties or JVM SSL system properties.
+- **Rate limiting**: Bucket4j token bucket (300 req/min per `X-Client-Id` header, falls back to remote address) in production only.
 
 Supported Kafka client security:
 
-- AdminClient supports PLAINTEXT, SSL, and mTLS connection modes.
-- Provide truststore/keystore file paths and passwords via the container entrypoint and JVM SSL system properties.
-- TLS and mTLS use the JVM keystore/truststore configured at startup; no SASL/SCRAM support remains in the app.
+- Local profile uses PLAINTEXT only.
+- Production profile supports SSL and mTLS via JVM keystore/truststore settings.
 
 ## API Endpoints (v1)
 

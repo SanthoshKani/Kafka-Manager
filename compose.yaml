@@ -185,11 +185,8 @@ services:
       broker3:
         condition: service_healthy
     environment:
-      KAFKA_MANAGER_MASTER_KEY_BASE64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-      KAFKA_MANAGER_BASIC_AUTH_USERNAME: admin
-      KAFKA_MANAGER_BASIC_AUTH_PASSWORD: admin
+      SPRING_PROFILES_ACTIVE: local
       BOOTSTRAP_SERVERS_CONFIG: broker1:9092,broker2:9092,broker3:9092
-      KAFKA_ADMIN_SECURITY_PROTOCOL: PLAINTEXT
     ports:
       - "8080:8080"
 

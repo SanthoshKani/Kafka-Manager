@@ -78,7 +78,7 @@ Kafka-Manager/
 
 - **Single Kafka Cluster**: The app connects to one Kafka cluster configured through `BOOTSTRAP_SERVERS_CONFIG`
 - **Singleton AdminClient**: One process-wide Kafka Admin client is reused for all Kafka operations
-- **Secret Encryption**: AES-256-GCM encryption for application secrets
+- **Profile-Based Security**: Local profile is open for development, while production uses Basic Auth, OAuth2 Resource Server, and Kafka SSL/mTLS
 - **Circuit Breaker**: Resilience4j protection for Kafka admin operations
 - **Rate Limiting**: Bucket4j token bucket algorithm
 - **Correlation IDs**: Request tracing via MDC and headers

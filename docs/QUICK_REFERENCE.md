@@ -25,11 +25,8 @@
 # Local profile (uses application-local.yml)
 ./gradlew bootRun --args='--spring.profiles.active=local'
 
-# Default profile
+# Production/default profile
 ./gradlew bootRun
-
-# With custom config
-./gradlew bootRun --args='--app.security.masterKeyBase64=...'
 ```
 
 
@@ -139,7 +136,15 @@ docker-compose build --no-cache
 ```yaml
 app:
   security:
-    masterKeyBase64: "<32-byte base64 key>"  # REQUIRED for secret encryption
+    basicAuth:
+      username: "admin"
+      password: "admin"
+    oauth2ResourceServer:
+      issuerUri: "https://auth.example.com"
+      jwkSetUri: "https://auth.example.com/.well-known/jwks.json"
+  admin:
+    bootstrapServers: "localhost:19092,localhost:29092,localhost:39092"
+    securityProtocol: "PLAINTEXT"
 ```
 
 ### Optional (with defaults)
@@ -309,7 +314,6 @@ curl -X GET "http://localhost:8080/api/v1/clusters/1/validate" \
 
 | Issue | Solution |
 |-------|----------|
-| `masterKeyBase64` not configured | Generate 32-byte key: `openssl rand -base64 32` |
 | AdminClient connection timeout | Check `bootstrapServers`, network, firewall |
 | SSL handshake failure | Verify truststore/keystore paths, passwords |
 | Kafka auth failure | Check security protocol and TLS/keystore/truststore configuration |

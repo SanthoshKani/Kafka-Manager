@@ -1,6 +1,8 @@
 spring:
   application:
     name: Kafka-Manager
+  profiles:
+    default: prod
   devtools:
     restart:
       enabled: false
@@ -71,26 +73,3 @@ app:
     capacity: 300
     refill-period: 1m
     key-header: X-Client-Id
-  security:
-    master-key-base64: ${KAFKA_MANAGER_MASTER_KEY_BASE64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
-    basic-auth:
-      username: ${KAFKA_MANAGER_BASIC_AUTH_USERNAME:admin}
-      password: ${KAFKA_MANAGER_BASIC_AUTH_PASSWORD:admin}
-    oauth2-resource-server:
-      issuer-uri: ${KAFKA_MANAGER_OAUTH2_ISSUER_URI:}
-      jwk-set-uri: ${KAFKA_MANAGER_OAUTH2_JWK_SET_URI:}
-  admin:
-    bootstrap-servers: ${BOOTSTRAP_SERVERS_CONFIG}
-    security-protocol: ${KAFKA_ADMIN_SECURITY_PROTOCOL:PLAINTEXT}
-    ssl:
-      trust-store: ${javax.net.ssl.trustStore:}
-      trust-store-password: ${javax.net.ssl.trustStorePassword:}
-      trust-store-type: ${javax.net.ssl.trustStoreType:BCFKS}
-      key-store: ${javax.net.ssl.keyStore:}
-      key-store-password: ${javax.net.ssl.keyStorePassword:}
-      key-store-type: ${javax.net.ssl.keyStoreType:BCFKS}
-      key-password: ${javax.net.ssl.keyPassword:${javax.net.ssl.keyStorePassword:}}
-      endpoint-identification-algorithm: ${KAFKA_ADMIN_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM:https}
-      enabled-protocols: ${KAFKA_ADMIN_SSL_ENABLED_PROTOCOLS:TLSv1.2,TLSv1.3}
-    default-request-timeout: 5s
-    default-operation-timeout: 30s
