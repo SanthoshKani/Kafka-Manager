@@ -44,29 +44,9 @@ src/main/java/com/opentext/security/analytics/messagehub/kafkamanager/
 │   ├── ProblemResponseWriter.java
 │   ├── ResourceNotFoundException.java
 │   └── TopicPartitionRequest.java
-├── clusterregistry/                      # Cluster registration & management
-│   ├── api/                              # REST controllers & DTOs
-│   │   ├── ClusterController.java        # CRUD for clusters
-│   │   ├── ClusterAdminController.java   # Admin operations (reassign, elect)
-│   │   ├── RegisterClusterRequest.java
-│   │   ├── UpdateClusterRequest.java
-│   │   ├── ClusterDetailResponse.java
-│   │   ├── ClusterSummaryResponse.java
-│   │   └── ... (other DTOs)
-│   ├── domain/                           # JPA entities & repositories
-│   │   ├── ClusterEntity.java            # Cluster configuration (with SSL/SASL)
-│   │   ├── ClusterRepository.java
-│   │   ├── SecretEntity.java             # Encrypted secrets storage
-│   │   └── SecretRepository.java
-│   └── service/                          # Business logic
-│       ├── ClusterRegistryService.java   # Cluster CRUD & validation
-│       ├── ClusterAdminService.java      # Admin operations (reassign, elect)
-│       ├── SecretCipherService.java      # AES-256-GCM encryption
-│       └── SecretStoreService.java       # Secret storage & retrieval
 ├── kafkaadmin/                           # Kafka AdminClient abstraction
-│   ├── AdminClientRegistry.java          # Cached AdminClient per cluster
 │   ├── KafkaAdminExecutionService.java   # Circuit breaker wrapper
-│   └── KafkaClientPropertyPolicyService.java # Property validation
+│   └── KafkaEndpointSupport.java         # Endpoint normalization helpers
 ├── topics/                               # Topic management
 │   ├── api/
 │   │   ├── TopicController.java
@@ -132,22 +112,17 @@ POST /api/v1/clusters
 **Key Classes:**
 - `ClusterController` - REST endpoint
 - `ClusterRegistryService` - Business logic, validation
-- `ClusterEntity` - JPA entity with all SSL/SASL fields
+- `ClusterEntity` - JPA entity with SSL/TLS fields
 - `SecretCipherService` - Encryption/decryption
 - `SecretStoreService` - Secret persistence
 
-### 2. AdminClient Creation & Caching Flow
+### 2. AdminClient Creation & SSL/TLS Flow
 
 ```
 Any Kafka Admin Operation
-    → AdminClientRegistry.getAdminClient(clusterId)
-    → Check Caffeine cache (key = clusterId)
-    → If miss: build AdminClient via buildHandle()
-        → ClusterRegistryService.getClusterDetail()
-        → SecretStoreService.getDecryptedSecrets()
-        → Configure all SSL/SASL properties
-        → Cache with fingerprint (invalidates on config change)
-    → Return AdminClient
+    → Use the Spring-managed singleton AdminClient
+    → Apply bootstrap servers + SSL/TLS settings from app configuration
+    → Execute operation through KafkaAdminExecutionService
 ```
 
 **Key Classes:**
@@ -230,7 +205,7 @@ app:
 
 ### Data Persistence
 
-This project uses in-memory repositories for development and testing. The in-memory stores are implemented in the `clusterregistry.service` and `operations.service` packages and provide thread-safe ConcurrentHashMap-backed storage. Data is not persisted across restarts. If you need durability, swap in a persistent implementation behind the `ClusterStore`, `SecretStore` and `OperationStore` abstractions.
+This project uses in-memory repositories for development and testing. The in-memory stores are implemented in the `operations.service` package and provide thread-safe ConcurrentHashMap-backed storage. Data is not persisted across restarts. If you need durability, swap in a persistent implementation behind the `OperationStore` abstractions.
 
 ## Testing
 

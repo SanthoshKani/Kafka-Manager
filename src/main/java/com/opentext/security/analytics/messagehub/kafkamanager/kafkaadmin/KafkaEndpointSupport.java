@@ -25,13 +25,6 @@ public final class KafkaEndpointSupport {
         return String.join(",", normalized);
     }
 
-    public static String chooseBootstrapServers(String bootstrapServers, String controllerBootstrapEndpoints) {
-        String normalizedBootstrapServers = normalizeEndpointList(bootstrapServers);
-        if (normalizedBootstrapServers != null && !normalizedBootstrapServers.isBlank()) {
-            return normalizedBootstrapServers;
-        }
-        return normalizeEndpointList(controllerBootstrapEndpoints);
-    }
 
     public static String normalizeSecurityProtocol(String securityProtocol) {
         if (securityProtocol == null) {

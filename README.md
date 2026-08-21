@@ -7,7 +7,7 @@ KRaft-native Kafka cluster manager built with Spring Boot, Spring MVC, Spring Se
 - Java 25
 - Spring Boot 4.1.0
 - Spring Web MVC
--- In-memory cluster registry: the cluster registry loads cluster definitions from environment if provided
+- Single Kafka cluster configured through `BOOTSTRAP_SERVERS_CONFIG`
 - Kafka AdminClient
 - OAuth2 Resource Server / Basic Auth
 - Micrometer + Prometheus
@@ -17,10 +17,6 @@ KRaft-native Kafka cluster manager built with Spring Boot, Spring MVC, Spring Se
 - Resilience4j (circuit breaker)
 
 ## What it exposes
-
-### Cluster Registry
-- Register, update, enable, disable, validate, delete clusters
-- Capability report per cluster
 
 ### Kafka Admin Surfaces
 
@@ -76,8 +72,8 @@ OpenAPI: `http://localhost:8080/api-docs` (or `openapi.yaml` in repo root)
 
 ## Profiles
 
- - `default`: Application runtime. The cluster registry runs in-memory and loads cluster definitions from environment (see below).
- - `it`: Compose-backed integration profile for live Kafka validation
+  - `default`: Application runtime with a single Kafka cluster configured from environment/system properties.
+  - `it`: Compose-backed integration profile for live Kafka validation
 
 ## Configuration
 
@@ -85,16 +81,15 @@ Key environment variables (see `application.yaml` for full list):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KAFKA_MANAGER_CLUSTERS` | - | Optional JSON array of cluster definitions loaded at startup into the in-memory registry. Example: [{"displayName":"prod","bootstrapServers":"kafka:9092","securityProtocol":"PLAINTEXT","enabled":true}]
-| `KAFKA_MANAGER_CLUSTERS` | - | Optional JSON array of cluster definitions loaded at startup into the in-memory registry. Example: [{"displayName":"prod","bootstrapServers":"kafka:9092","securityProtocol":"PLAINTEXT","enabled":true}]
 | `KAFKA_MANAGER_MASTER_KEY_BASE64` | (dev default) | AES master key for encrypting cluster secrets |
 | `KAFKA_MANAGER_BASIC_AUTH_USERNAME` | `admin` | Basic Auth username |
 | `KAFKA_MANAGER_BASIC_AUTH_PASSWORD` | `admin` | Basic Auth password |
 | `KAFKA_MANAGER_OAUTH2_ISSUER_URI` | - | OIDC issuer for OAuth2 Resource Server |
 | `KAFKA_MANAGER_OAUTH2_JWK_SET_URI` | - | JWK set URI for OAuth2 Resource Server |
-| `KAFKA_MANAGER_ADMIN_CACHE_SIZE` | `64` | AdminClient cache size |
-| `KAFKA_MANAGER_DEFAULT_REQUEST_TIMEOUT` | `5s` | AdminClient request timeout |
-| `KAFKA_MANAGER_DEFAULT_OPERATION_TIMEOUT` | `30s` | AdminClient operation timeout |
+| `BOOTSTRAP_SERVERS_CONFIG` | - | Kafka bootstrap servers for the singleton AdminClient |
+| `KAFKA_ADMIN_SECURITY_PROTOCOL` | `PLAINTEXT` | Kafka client protocol (`PLAINTEXT`, `SSL`) |
+| `javax.net.ssl.keyStore`, `javax.net.ssl.trustStore` | - | Kafka client keystore/truststore file paths supplied by the container entrypoint |
+| `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStorePassword` | - | Kafka client keystore/truststore passwords |
 
 ### Rate Limiting
 - Enabled by default (`app.rate-limit.enabled=true`)
@@ -113,17 +108,16 @@ Key environment variables (see `application.yaml` for full list):
 
 - **Basic Authentication**: HTTP Basic Auth for username/password authentication (configured via `KAFKA_MANAGER_BASIC_AUTH_USERNAME` and `KAFKA_MANAGER_BASIC_AUTH_PASSWORD`)
 - **OAuth2 Resource Server**: Validates JWT Bearer tokens via issuer-uri or JWK set URI (configured via `KAFKA_MANAGER_OAUTH2_ISSUER_URI` or `KAFKA_MANAGER_OAUTH2_JWK_SET_URI`)
-- **Cluster secrets encrypted**: Bootstrap servers, SASL credentials, TLS config encrypted at rest with AES-GCM (master key from `KAFKA_MANAGER_MASTER_KEY_BASE64`)
+- **Application secrets encrypted**: Sensitive config is encrypted at rest with AES-GCM (master key from `KAFKA_MANAGER_MASTER_KEY_BASE64`)
 - **Actuator endpoints**: Secured, read-only access for health/info/prometheus
 - **CORS**: Disabled by default; configure via `SecurityConfig` if needed
 - **Rate limiting**: Bucket4j token bucket (300 req/min per `X-Client-Id` header, falls back to remote address)
 
 Supported Kafka client security:
 
-- AdminClient supports PLAINTEXT, SSL, SASL_PLAINTEXT and SASL_SSL connection modes.
-- SASL mechanisms supported: `SCRAM-SHA-256`, `SCRAM-SHA-512`, and `PLAIN` (configure via cluster registration fields).
-- TLS: provide truststore/keystore as a file path or as base64-encoded keystore bytes; temporary files are created securely when needed.
-- All security-sensitive values (passwords, keystore bytes) should be supplied via the secret fields and are stored encrypted.
+- AdminClient supports PLAINTEXT, SSL, and mTLS connection modes.
+- Provide truststore/keystore file paths and passwords via the container entrypoint and JVM SSL system properties.
+- TLS and mTLS use the JVM keystore/truststore configured at startup; no SASL/SCRAM support remains in the app.
 
 ## API Endpoints (v1)
 
@@ -131,13 +125,8 @@ Base path: `/api/v1`
 
 ### Clusters
 ```
-GET    /clusters                    # List clusters
-POST   /clusters                    # Register cluster
-GET    /clusters/{id}               # Get cluster detail
-PATCH  /clusters/{id}               # Update cluster
-DELETE /clusters/{id}               # Delete cluster
-POST   /clusters/{id}/validate      # Validate cluster connectivity
-GET    /clusters/{id}/capability    # Capability report
+The app no longer exposes cluster registry CRUD endpoints.
+Cluster-scoped endpoints still take a `clusterId` path variable for compatibility with existing resource routes.
 ```
 
 ### Topics
@@ -227,20 +216,14 @@ POST   /operations/{id}/cancel                              # Cancel pending ope
 # Unit + slice tests
 ./gradlew test
 
-# Integration tests (requires Docker)
-./gradlew integrationTest
-
-# Full verification (includes integration tests + coverage)
+# Full verification
 ./gradlew check
 ```
 
 ## Notes
 
-- `AdminClient` instances are cached per cluster and invalidated on registry changes.
+- Set `BOOTSTRAP_SERVERS_CONFIG` before starting the app; the Kafka Manager now connects to one shared Kafka cluster through a singleton `AdminClient`.
 - Kafka admin calls are bounded, logged, translated to RFC 9457 problem details, and recorded as persisted operations for mutating flows.
-- The compose-backed integration suite validates the live REST-to-Kafka path for the supported cluster surfaces.
 - `openapi.yaml` is the exported contract snapshot for the REST API.
-- `openapi.yaml` is the exported contract snapshot for the REST API.
-- When running with the in-memory registry, no database or migrations are required for cluster registry functionality; all data is kept in-memory and cleared on restart.
 - HikariCP pool tuned for production (leak detection, validation, max lifetime).
 - Structured logging with correlation IDs via `CorrelationIdFilter`.

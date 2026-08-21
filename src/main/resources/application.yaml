@@ -80,13 +80,17 @@ app:
       issuer-uri: ${KAFKA_MANAGER_OAUTH2_ISSUER_URI:}
       jwk-set-uri: ${KAFKA_MANAGER_OAUTH2_JWK_SET_URI:}
   admin:
-    cache-size: ${KAFKA_MANAGER_ADMIN_CACHE_SIZE:64}
+    bootstrap-servers: ${BOOTSTRAP_SERVERS_CONFIG}
+    security-protocol: ${KAFKA_ADMIN_SECURITY_PROTOCOL:PLAINTEXT}
+    ssl:
+      trust-store: ${javax.net.ssl.trustStore:}
+      trust-store-password: ${javax.net.ssl.trustStorePassword:}
+      trust-store-type: ${javax.net.ssl.trustStoreType:BCFKS}
+      key-store: ${javax.net.ssl.keyStore:}
+      key-store-password: ${javax.net.ssl.keyStorePassword:}
+      key-store-type: ${javax.net.ssl.keyStoreType:BCFKS}
+      key-password: ${javax.net.ssl.keyPassword:${javax.net.ssl.keyStorePassword:}}
+      endpoint-identification-algorithm: ${KAFKA_ADMIN_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM:https}
+      enabled-protocols: ${KAFKA_ADMIN_SSL_ENABLED_PROTOCOLS:TLSv1.2,TLSv1.3}
     default-request-timeout: 5s
     default-operation-timeout: 30s
-    connection-validation-timeout: 5s
-  operations:
-    poll-interval: 15s
-    lease-duration: 60s
-  cluster-registry:
-    max-page-size: 100
-    max-client-properties: 32

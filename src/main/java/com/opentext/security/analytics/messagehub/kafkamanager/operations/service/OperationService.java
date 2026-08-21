@@ -1,26 +1,22 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.operations.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.opentext.security.analytics.messagehub.kafkamanager.clusterregistry.service.ClusterStore;
 import com.opentext.security.analytics.messagehub.kafkamanager.common.ConflictException;
 import com.opentext.security.analytics.messagehub.kafkamanager.common.InvalidOperationException;
 import com.opentext.security.analytics.messagehub.kafkamanager.common.JsonSupport;
 import com.opentext.security.analytics.messagehub.kafkamanager.common.ResourceNotFoundException;
-import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
-import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.api.OperationDetailResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.api.OperationEventResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.api.OperationSummaryResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.api.SubmitOperationRequest;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.domain.*;
-import com.opentext.security.analytics.messagehub.kafkamanager.operations.domain.OperationEventStore;
-import com.opentext.security.analytics.messagehub.kafkamanager.operations.domain.OperationStore;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class OperationService {
@@ -29,23 +25,14 @@ public class OperationService {
 
     private final OperationStore operationRepository;
     private final OperationEventStore eventRepository;
-    private final ClusterStore clusterRepository;
-    private final KafkaAdminExecutionService adminExecutionService;
-    private final KafkaManagerProperties properties;
     private final ObjectMapper objectMapper;
 
     public OperationService(
             OperationStore operationRepository,
             OperationEventStore eventRepository,
-            ClusterStore clusterRepository,
-            KafkaAdminExecutionService adminExecutionService,
-            KafkaManagerProperties properties,
             ObjectMapper objectMapper) {
         this.operationRepository = operationRepository;
         this.eventRepository = eventRepository;
-        this.clusterRepository = clusterRepository;
-        this.adminExecutionService = adminExecutionService;
-        this.properties = properties;
         this.objectMapper = objectMapper;
     }
 
@@ -71,9 +58,6 @@ public class OperationService {
     }
 
     public OperationDetailResponse submit(UUID clusterId, SubmitOperationRequest request) {
-        if (!clusterRepository.existsById(clusterId)) {
-            throw new ResourceNotFoundException("Cluster not found");
-        }
         if (request.idempotencyKey() != null
                 && operationRepository
                         .findByClusterIdAndIdempotencyKey(clusterId, request.idempotencyKey())

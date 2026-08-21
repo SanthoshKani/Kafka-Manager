@@ -54,7 +54,6 @@ Kafka-Manager/
 │   │   ├── java/.../kafkamanager/
 │   │   │   ├── config/           # Spring configuration
 │   │   │   ├── common/           # Shared utilities
-│   │   │   ├── clusterregistry/  # Cluster management
 │   │   │   ├── kafkaadmin/       # AdminClient abstraction
 │   │   │   ├── topics/           # Topic management
 │   │   │   ├── brokers/          # Broker management
@@ -70,7 +69,6 @@ Kafka-Manager/
 │   │       ├── application-local.yml
 │   │       └── db/migration/     # Flyway migrations
 │   ├── test/                     # Unit tests
-│   └── integrationTest/          # Integration tests
 ├── compose.yaml                  # Docker Compose for local dev
 ├── build.gradle                  # Gradle build
 └── README.md                     # Project README
@@ -78,9 +76,9 @@ Kafka-Manager/
 
 ## Key Concepts
 
-- **Cluster Registry**: Centralized management of Kafka cluster connections with full SSL/SASL support
-- **AdminClient Caching**: Caffeine-based cache with automatic invalidation via fingerprint hashing
-- **Secret Encryption**: AES-256-GCM encryption for all sensitive configuration
+- **Single Kafka Cluster**: The app connects to one Kafka cluster configured through `BOOTSTRAP_SERVERS_CONFIG`
+- **Singleton AdminClient**: One process-wide Kafka Admin client is reused for all Kafka operations
+- **Secret Encryption**: AES-256-GCM encryption for application secrets
 - **Circuit Breaker**: Resilience4j protection for Kafka admin operations
 - **Rate Limiting**: Bucket4j token bucket algorithm
 - **Correlation IDs**: Request tracing via MDC and headers

@@ -181,23 +181,23 @@ app:
 }
 ```
 
-### With SASL/SSL
+### With TLS/mTLS
 ```json
 {
   "name": "secure-cluster",
   "bootstrapServers": "kafka1:9093,kafka2:9093,kafka3:9093",
-  "securityProtocol": "SASL_SSL",
-  "saslMechanism": "SCRAM-SHA-512",
-  "saslJaasConfig": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"admin\" password=\"secret\";",
-  "sslTruststoreLocation": "/path/to/truststore.jks",
-  "sslTruststorePasswordSecretId": "truststore-password-secret-id",
-  "sslKeystoreLocation": "/path/to/keystore.jks",
-  "sslKeystorePasswordSecretId": "keystore-password-secret-id",
-  "sslKeyPasswordSecretId": "key-password-secret-id",
-  "sslEndpointIdentificationAlgorithm": "https",
-  "sslEnabledProtocols": "TLSv1.2,TLSv1.3",
-  "sslTruststoreType": "JKS",
-  "sslKeystoreType": "JKS"
+  "securityProtocol": "SSL",
+  "ssl": {
+    "trustStore": "/path/to/truststore.bcfks",
+    "trustStorePassword": "secret",
+    "keyStore": "/path/to/keystore.bcfks",
+    "keyStorePassword": "secret",
+    "keyPassword": "secret",
+    "trustStoreType": "BCFKS",
+    "keyStoreType": "BCFKS",
+    "endpointIdentificationAlgorithm": "https",
+    "enabledProtocols": "TLSv1.2,TLSv1.3"
+  }
 }
 ```
 
@@ -312,7 +312,7 @@ curl -X GET "http://localhost:8080/api/v1/clusters/1/validate" \
 | `masterKeyBase64` not configured | Generate 32-byte key: `openssl rand -base64 32` |
 | AdminClient connection timeout | Check `bootstrapServers`, network, firewall |
 | SSL handshake failure | Verify truststore/keystore paths, passwords |
-| SASL authentication failure | Check JAAS config, username/password |
+| Kafka auth failure | Check security protocol and TLS/keystore/truststore configuration |
 | Rate limit exceeded | Increase `capacity` or `refillPeriod` |
 | Circuit breaker open | Check Kafka broker health, increase timeout |
 | Flyway migration failed | Check SQL syntax, run `flywayClean` first |

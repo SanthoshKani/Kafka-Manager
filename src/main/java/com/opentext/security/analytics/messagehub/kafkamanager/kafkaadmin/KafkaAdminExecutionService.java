@@ -5,12 +5,7 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.KafkaAdmin
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import java.time.Duration;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
+import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
@@ -20,31 +15,41 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+
 @Service
 public class KafkaAdminExecutionService {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaAdminExecutionService.class);
     private static final String CLUSTER_ID_TAG = "clusterId";
 
-    private final AdminClientRegistry registry;
+    private final Admin admin;
     private final MeterRegistry meterRegistry;
 
-    public KafkaAdminExecutionService(AdminClientRegistry registry, MeterRegistry meterRegistry) {
-        this.registry = registry;
+    public KafkaAdminExecutionService(Admin admin, MeterRegistry meterRegistry) {
+        this.admin = admin;
         this.meterRegistry = meterRegistry;
     }
 
+    @SuppressWarnings("unused")
     @CircuitBreaker(name = "kafkaAdmin", fallbackMethod = "circuitBreakerFallback")
     public <T> T execute(
             UUID clusterId,
             String action,
             Duration timeout,
-            Function<AdminClientRegistry.AdminClientHandle, T> callback) {
+            Function<AdminClientHandle, T> callback) {
+        long timeoutMs = timeout.toMillis();
         Timer.Sample sample = Timer.start(meterRegistry);
         String clusterIdStr = clusterId.toString();
         MDC.put(CLUSTER_ID_TAG, clusterIdStr);
         MDC.put("adminAction", action);
-        AdminClientRegistry.AdminClientHandle handle = registry.get(clusterId);
+        MDC.put("adminTimeoutMs", Long.toString(timeoutMs));
+        AdminClientHandle handle = new AdminClientHandle(admin);
         try {
             return callback.apply(handle);
         } catch (KafkaAdminException exception) {
@@ -66,6 +71,7 @@ public class KafkaAdminExecutionService {
                     "kafka.manager.admin.requests", CLUSTER_ID_TAG, clusterIdStr, "action", action));
             MDC.remove(CLUSTER_ID_TAG);
             MDC.remove("adminAction");
+            MDC.remove("adminTimeoutMs");
         }
     }
 
@@ -105,16 +111,20 @@ public class KafkaAdminExecutionService {
         }
     }
 
+    @SuppressWarnings("unused")
     private <T> T circuitBreakerFallback(
             UUID clusterId,
             String action,
             Duration timeout,
-            Function<AdminClientRegistry.AdminClientHandle, T> callback,
+            Function<AdminClientHandle, T> callback,
             Throwable throwable) {
+        long timeoutMs = timeout.toMillis();
         log.warn(
-                "Circuit breaker fallback triggered for clusterId={}, action={}: {}",
+                "Circuit breaker fallback triggered for clusterId={}, action={}, timeoutMs={}, callbackType={}: {}",
                 clusterId,
                 action,
+                timeoutMs,
+                callback == null ? "null" : callback.getClass().getName(),
                 throwable.getMessage());
         throw translate(clusterId, action, throwable);
     }
@@ -151,5 +161,12 @@ public class KafkaAdminExecutionService {
                 ApiErrorCode.KAFKA_CONNECTIVITY_FAILURE,
                 "CONNECTIVITY_FAILURE",
                 "Kafka connectivity failure");
+    }
+
+    public record AdminClientHandle(Admin admin) implements AutoCloseable {
+        @Override
+        public void close() {
+            // Singleton AdminClient is managed by Spring lifecycle.
+        }
     }
 }
