@@ -18,13 +18,12 @@ class RateLimitingConfigTest {
                 new KafkaManagerProperties(
                         "test",
                         new KafkaManagerProperties.Security(
-                                "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
                                 new KafkaManagerProperties.BasicAuth("testuser", "testpass"),
                                 new KafkaManagerProperties.OAuth2ResourceServer("", "")),
                         new KafkaManagerProperties.Admin(
-                                4, Duration.ofSeconds(1), Duration.ofSeconds(1), Duration.ofSeconds(1)),
-                        new KafkaManagerProperties.Operations(Duration.ofSeconds(1), Duration.ofSeconds(1)),
-                        new KafkaManagerProperties.ClusterRegistry(50, 8),
+                                "localhost:9092", "PLAINTEXT", null, Duration.ofSeconds(1), Duration.ofSeconds(1)),
+                        new KafkaManagerProperties.Metrics(
+                                new KafkaManagerProperties.AdminDerived(Duration.ofSeconds(30))),
                         new KafkaManagerProperties.RateLimit(true, 1, Duration.ofMinutes(1), "X-Client-Id")),
                 new ProblemResponseWriter(new ObjectMapper()));
 

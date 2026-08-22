@@ -8,14 +8,15 @@ import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCr
 import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCredentialUpsertRequest;
 import java.util.List;
 import java.util.UUID;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.DescribeUserScramCredentialsResult;
-import org.apache.kafka.clients.admin.ScramCredentialInfo;
-import org.apache.kafka.clients.admin.ScramMechanism;
-import org.apache.kafka.clients.admin.UserScramCredentialDeletion;
-import org.apache.kafka.clients.admin.UserScramCredentialUpsertion;
+import org.apache.kafka.clients.admin.*;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service to manage SCRAM credentials for Kafka users.
+ *
+ * <p>Supports describing existing SCRAM credentials and creating/updating or deleting credentials
+ * via AdminClient operations. Mutations are recorded for auditability.
+ */
 @Service
 public class ScramService {
 
@@ -32,6 +33,13 @@ public class ScramService {
         this.properties = properties;
     }
 
+    /**
+     * Retrieve SCRAM credential info for one or more users.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param userNames list of user names to describe
+     * @return list of {@link ScramCredentialResponse} describing mechanism and iterations
+     */
     public List<ScramCredentialResponse> describe(UUID clusterId, List<String> userNames) {
         return adminExecutionService.execute(
                 clusterId, "describe-scram-users", properties.admin().defaultRequestTimeout(), handle -> {
@@ -52,6 +60,13 @@ public class ScramService {
                 });
     }
 
+    /**
+     * Create or update SCRAM credentials for a user.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param userName the user name for which to upsert credentials
+     * @param request upsert request containing mechanism, iterations and the password
+     */
     public void upsert(UUID clusterId, String userName, ScramCredentialUpsertRequest request) {
         mutationRecorder.record(
                 clusterId,
@@ -80,6 +95,13 @@ public class ScramService {
                         }));
     }
 
+    /**
+     * Delete SCRAM credentials for a user for the specified mechanism.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param userName the user name whose credential will be removed
+     * @param request deletion request specifying mechanism to remove
+     */
     public void delete(UUID clusterId, String userName, ScramCredentialDeleteRequest request) {
         mutationRecorder.record(
                 clusterId,

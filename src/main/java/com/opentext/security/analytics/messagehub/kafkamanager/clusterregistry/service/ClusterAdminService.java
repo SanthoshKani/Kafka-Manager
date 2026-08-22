@@ -20,6 +20,12 @@ import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+/**
+ * Cluster-level administrative service for leader election, partition reassignments and log-dir operations.
+ *
+ * <p>Provides higher-level orchestration over AdminClient features such as preferred/unclean leader
+ * election, partition reassignment management and broker log directory inspection and changes.
+ */
 @Service
 public class ClusterAdminService {
 
@@ -38,6 +44,16 @@ public class ClusterAdminService {
         this.properties = properties;
     }
 
+    /**
+     * Trigger leader election for specified partitions or the whole cluster.
+     *
+     * <p>When requesting an UNCLEAN election, explicit partitions must be provided. Preferred
+     * elections are no-ops on single-node clusters.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request request describing election type and targeted partitions
+     * @throws ApiException for invalid request combinations
+     */
     public void electLeaders(UUID clusterId, LeaderElectionRequest request) {
         if (request.electionType() == ElectionType.UNCLEAN
                 && (request.partitions() == null || request.partitions().isEmpty())) {
@@ -87,6 +103,12 @@ public class ClusterAdminService {
                         }));
     }
 
+    /**
+     * Alter partition replica assignments (start/cancel reassignments) for multiple partitions.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request the reassignment request with changes
+     */
     public void alterPartitionReassignments(UUID clusterId, PartitionReassignmentRequest request) {
         mutationRecorder.record(
                 clusterId,
@@ -118,6 +140,12 @@ public class ClusterAdminService {
                         }));
     }
 
+    /**
+     * List currently active partition reassignments in the cluster.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @return list of {@link PartitionReassignmentResponse}
+     */
     public List<PartitionReassignmentResponse> listPartitionReassignments(UUID clusterId) {
         return adminExecutionService.execute(
                 clusterId, "list-partition-reassignments", properties.admin().defaultRequestTimeout(), handle -> {
@@ -134,6 +162,13 @@ public class ClusterAdminService {
                 });
     }
 
+    /**
+     * Describe log directories for the provided brokers, returning replica information and sizes.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param brokerIds list of broker ids to describe
+     * @return list of {@link BrokerLogDirResponse}
+     */
     public List<BrokerLogDirResponse> describeLogDirs(UUID clusterId, List<Integer> brokerIds) {
         return adminExecutionService.execute(
                 clusterId, "describe-log-dirs", properties.admin().defaultRequestTimeout(), handle -> {
@@ -150,6 +185,12 @@ public class ClusterAdminService {
                 });
     }
 
+    /**
+     * Alter replica log directory assignments for replicas on brokers.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request request containing topic/partition/broker -> logDir mappings
+     */
     public void alterReplicaLogDirs(UUID clusterId, ReplicaLogDirRequest request) {
         mutationRecorder.record(
                 clusterId,

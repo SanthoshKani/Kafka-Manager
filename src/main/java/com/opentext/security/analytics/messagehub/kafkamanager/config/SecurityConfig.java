@@ -4,9 +4,9 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.ApiAccessD
 import com.opentext.security.analytics.messagehub.kafkamanager.common.ApiAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
@@ -23,16 +23,14 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.StaticHeadersWriter;
 
 @Configuration
-@EnableMethodSecurity
+@Profile("prod")
 public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             ApiAuthenticationEntryPoint authenticationEntryPoint,
-            ApiAccessDeniedHandler accessDeniedHandler,
-            JwtDecoder jwtDecoder)
-            throws Exception {
+            ApiAccessDeniedHandler accessDeniedHandler) {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
@@ -80,12 +78,7 @@ public class SecurityConfig {
                     .build();
             return new InMemoryUserDetailsManager(user);
         }
-        // Fallback for development - should not be used in production
-        UserDetails user = User.withUsername("admin")
-                .password(passwordEncoder.encode("admin"))
-                .roles("USER")
-                .build();
-        return new InMemoryUserDetailsManager(user);
+        throw new IllegalStateException("Production profile requires app.security.basic-auth.username and password");
     }
 
     @Bean

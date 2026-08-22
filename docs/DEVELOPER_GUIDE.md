@@ -44,29 +44,9 @@ src/main/java/com/opentext/security/analytics/messagehub/kafkamanager/
 │   ├── ProblemResponseWriter.java
 │   ├── ResourceNotFoundException.java
 │   └── TopicPartitionRequest.java
-├── clusterregistry/                      # Cluster registration & management
-│   ├── api/                              # REST controllers & DTOs
-│   │   ├── ClusterController.java        # CRUD for clusters
-│   │   ├── ClusterAdminController.java   # Admin operations (reassign, elect)
-│   │   ├── RegisterClusterRequest.java
-│   │   ├── UpdateClusterRequest.java
-│   │   ├── ClusterDetailResponse.java
-│   │   ├── ClusterSummaryResponse.java
-│   │   └── ... (other DTOs)
-│   ├── domain/                           # JPA entities & repositories
-│   │   ├── ClusterEntity.java            # Cluster configuration (with SSL/SASL)
-│   │   ├── ClusterRepository.java
-│   │   ├── SecretEntity.java             # Encrypted secrets storage
-│   │   └── SecretRepository.java
-│   └── service/                          # Business logic
-│       ├── ClusterRegistryService.java   # Cluster CRUD & validation
-│       ├── ClusterAdminService.java      # Admin operations (reassign, elect)
-│       ├── SecretCipherService.java      # AES-256-GCM encryption
-│       └── SecretStoreService.java       # Secret storage & retrieval
 ├── kafkaadmin/                           # Kafka AdminClient abstraction
-│   ├── AdminClientRegistry.java          # Cached AdminClient per cluster
 │   ├── KafkaAdminExecutionService.java   # Circuit breaker wrapper
-│   └── KafkaClientPropertyPolicyService.java # Property validation
+│   └── KafkaEndpointSupport.java         # Endpoint normalization helpers
 ├── topics/                               # Topic management
 │   ├── api/
 │   │   ├── TopicController.java
@@ -117,43 +97,34 @@ src/main/java/com/opentext/security/analytics/messagehub/kafkamanager/
 
 ## Code Flow - Key Request Paths
 
-### 1. Cluster Registration Flow
+### 1. Profile-Scoped Startup Flow
 
 ```
-POST /api/v1/clusters
-    → ClusterController.registerCluster()
-    → ClusterRegistryService.register()
-    → ClusterEntity (JPA) persisted
-    → SecretEntity (encrypted) persisted via SecretStoreService
-    → SecretCipherService.encrypt() using AES-256-GCM
-    → Returns ClusterDetailResponse
+Application startup
+    → Select `local` or `prod` profile
+    → Load profile-specific HTTP security, OpenAPI, and Kafka AdminClient config
+    → Create the singleton AdminClient with PLAINTEXT (local) or SSL/mTLS (prod)
+    → Expose unsecured endpoints in local and secured endpoints in prod
 ```
 
 **Key Classes:**
-- `ClusterController` - REST endpoint
-- `ClusterRegistryService` - Business logic, validation
-- `ClusterEntity` - JPA entity with all SSL/SASL fields
-- `SecretCipherService` - Encryption/decryption
-- `SecretStoreService` - Secret persistence
+- `LocalSecurityConfig` - Permissive HTTP filter chain for IDE and compose runs
+- `SecurityConfig` - Production HTTP security chain with Basic Auth / OAuth2 Resource Server
+- `LocalKafkaAdminClientPropertiesFactory` - PLAINTEXT-only AdminClient properties
+- `ProdKafkaAdminClientPropertiesFactory` - SSL/mTLS AdminClient properties
 
-### 2. AdminClient Creation & Caching Flow
+### 2. AdminClient Creation & SSL/TLS Flow
 
 ```
 Any Kafka Admin Operation
-    → AdminClientRegistry.getAdminClient(clusterId)
-    → Check Caffeine cache (key = clusterId)
-    → If miss: build AdminClient via buildHandle()
-        → ClusterRegistryService.getClusterDetail()
-        → SecretStoreService.getDecryptedSecrets()
-        → Configure all SSL/SASL properties
-        → Cache with fingerprint (invalidates on config change)
-    → Return AdminClient
+    → Use the Spring-managed singleton AdminClient
+    → Apply bootstrap servers + SSL/TLS settings from app configuration
+    → Execute operation through KafkaAdminExecutionService
 ```
 
 **Key Classes:**
 - `AdminClientRegistry` - Cache + AdminClient builder
 - `KafkaClientPropertyPolicyService` - Validates allowed properties
-- `ClusterEntity` - Holds all connection config
 
 ### 3. Topic Management Flow
 
@@ -203,7 +174,6 @@ Incoming Request
 app:
   serviceName: "kafka-manager"
   security:
-    masterKeyBase64: "<base64-encoded-32-byte-key>"  # Required for secret encryption
     basicAuth:
       username: "admin"
       password: "admin"
@@ -226,11 +196,14 @@ app:
     capacity: 1000
     refillPeriod: 1m
     keyHeader: "X-Client-Id"
+
+# Local profile: no HTTP auth, plaintext Kafka only.
+# Prod profile: Basic Auth / OAuth2 Resource Server plus SSL or mTLS Kafka settings.
 ```
 
 ### Data Persistence
 
-This project uses in-memory repositories for development and testing. The in-memory stores are implemented in the `clusterregistry.service` and `operations.service` packages and provide thread-safe ConcurrentHashMap-backed storage. Data is not persisted across restarts. If you need durability, swap in a persistent implementation behind the `ClusterStore`, `SecretStore` and `OperationStore` abstractions.
+This project uses in-memory repositories for development and testing. The in-memory stores are implemented in the `operations.service` package and provide thread-safe ConcurrentHashMap-backed storage. Data is not persisted across restarts. If you need durability, swap in a persistent implementation behind the `OperationStore` abstractions.
 
 ## Testing
 
@@ -258,8 +231,8 @@ Located in `src/integrationTest/java/...`
 ### 1. AdminClient Caching with Fingerprint Invalidation
 `AdminClientRegistry` uses Caffeine cache keyed by clusterId. The cache key includes a fingerprint hash of all connection properties. When cluster config changes, the fingerprint changes, automatically invalidating the cache.
 
-### 2. Secret Encryption
-All sensitive data (passwords, keystore passwords) encrypted with AES-256-GCM via `SecretCipherService`. Master key configured via `app.security.masterKeyBase64`.
+### 2. Profile-Based Security
+Local profile requests are permitted without authentication for easy IDE and docker-compose development. Production profile uses Basic Auth and OAuth2 Resource Server, while Kafka AdminClient SSL/mTLS settings are loaded only from production properties.
 
 ### 3. Circuit Breaker
 `KafkaAdminExecutionService` wraps AdminClient calls with Resilience4j circuit breaker (sliding window, failure threshold, wait duration).
