@@ -18,6 +18,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Service managing asynchronous operations persisted in the operations store.
+ *
+ * <p>Operations are stored as entities with lifecycle state (pending, validating, failed, etc.). This
+ * service supports submission with idempotency, listing with pagination, retrieving details and events,
+ * requesting cancellation and retrying failed operations.
+ */
 @Service
 public class OperationService {
 
@@ -36,18 +43,40 @@ public class OperationService {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * List operations for a cluster with pagination.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param page zero-based page index
+     * @param size page size
+     * @return a page of {@link OperationSummaryResponse}
+     */
     public Page<OperationSummaryResponse> list(UUID clusterId, int page, int size) {
         return operationRepository
                 .findByClusterIdOrderByCreatedAtDesc(clusterId, PageRequest.of(page, size))
                 .map(this::summary);
     }
 
+    /**
+     * Get full operation details by operation id.
+     *
+     * @param id operation UUID
+     * @return {@link OperationDetailResponse} containing operation fields and events
+     * @throws ResourceNotFoundException when the operation does not exist
+     */
     public OperationDetailResponse get(UUID id) {
         OperationEntity entity =
                 operationRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException(OPERATION_NOT_FOUND));
         return detail(entity);
     }
 
+    /**
+     * Return the chronological list of events for an operation.
+     *
+     * @param id operation UUID
+     * @return list of {@link OperationEventResponse}
+     * @throws ResourceNotFoundException when the operation does not exist
+     */
     public List<OperationEventResponse> events(UUID id) {
         if (!operationRepository.existsById(id)) {
             throw new ResourceNotFoundException(OPERATION_NOT_FOUND);
@@ -57,6 +86,18 @@ public class OperationService {
                 .toList();
     }
 
+    /**
+     * Submit a new asynchronous operation.
+     *
+     * <p>This creates an OperationEntity in the repository, records a SUBMITTED event and
+     * returns the operation detail. If an idempotency key is provided and a matching operation
+     * already exists for the cluster, a {@code ConflictException} is thrown.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request the submission request containing operation type, target and payload
+     * @return created {@link OperationDetailResponse}
+     * @throws ConflictException when a duplicate idempotency key is detected
+     */
     public OperationDetailResponse submit(UUID clusterId, SubmitOperationRequest request) {
         if (request.idempotencyKey() != null
                 && operationRepository
@@ -83,6 +124,12 @@ public class OperationService {
         return detail(entity);
     }
 
+    /**
+     * Request cancellation of an in-progress operation.
+     *
+     * @param id operation UUID
+     * @throws ResourceNotFoundException when the operation does not exist
+     */
     public void cancel(UUID id) {
         OperationEntity entity =
                 operationRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException(OPERATION_NOT_FOUND));
@@ -96,6 +143,14 @@ public class OperationService {
                 eventRepository.countByOperationId(id) + 1));
     }
 
+    /**
+     * Retry a failed or cancelled operation by resetting its state to PENDING and clearing
+     * failure/cancellation flags.
+     *
+     * @param id operation UUID
+     * @throws ResourceNotFoundException when the operation does not exist
+     * @throws InvalidOperationException when the operation is not in a retryable state
+     */
     public void retry(UUID id) {
         OperationEntity entity =
                 operationRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException(OPERATION_NOT_FOUND));

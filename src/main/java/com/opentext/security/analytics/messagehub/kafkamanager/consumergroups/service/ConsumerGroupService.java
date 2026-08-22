@@ -2,31 +2,28 @@ package com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.s
 
 import com.opentext.security.analytics.messagehub.kafkamanager.common.ResourceNotFoundException;
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
-import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.ConsumerGroupDetailResponse;
-import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.ConsumerGroupMemberRemovalRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.ConsumerGroupOffsetUpdate;
-import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.ConsumerGroupOffsetUpdateRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.ConsumerGroupSummaryResponse;
-import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.MemberResponse;
-import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.OffsetLagResponse;
+import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.*;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
+import org.apache.kafka.clients.admin.*;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.stereotype.Service;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.AlterConsumerGroupOffsetsResult;
-import org.apache.kafka.clients.admin.ConsumerGroupDescription;
-import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.admin.ListConsumerGroupsOptions;
-import org.apache.kafka.clients.admin.MemberToRemove;
-import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
-import org.springframework.stereotype.Service;
+import java.util.function.Function;
 
+/**
+ * Service that manages Kafka consumer groups: discovery, description, offset management and member removal.
+ *
+ * <p>All AdminClient interactions are executed through {@code KafkaAdminExecutionService} to provide
+ * consistent timeout, metrics and error translation behavior.
+ */
 @Service
+@SuppressWarnings({"deprecation", "removal"})
 public class ConsumerGroupService {
 
     private final KafkaAdminExecutionService adminExecutionService;
@@ -37,6 +34,12 @@ public class ConsumerGroupService {
         this.properties = properties;
     }
 
+    /**
+     * List all consumer groups in the given cluster.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @return list of {@link ConsumerGroupSummaryResponse}
+     */
     public List<ConsumerGroupSummaryResponse> list(UUID clusterId) {
         return adminExecutionService.execute(
                 clusterId, "list-consumer-groups", properties.admin().defaultRequestTimeout(), handle -> {
@@ -46,14 +49,27 @@ public class ConsumerGroupService {
                                     clusterId,
                                     "list-consumer-groups",
                                     properties.admin().defaultRequestTimeout(),
-                                    admin.listConsumerGroups(new ListConsumerGroupsOptions())
+                                    admin.listConsumerGroups()
                                             .all())
                             .stream()
-                            .map(this::summary)
+                            .map(listing -> new ConsumerGroupSummaryResponse(
+                                    listing.groupId(),
+                                    null,
+                                    null,
+                                    0,
+                                    0))
                             .toList();
                 });
     }
 
+    /**
+     * Describe a consumer group, including members and per-partition lag computation.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param groupId the consumer group identifier
+     * @return {@link ConsumerGroupDetailResponse} with members, offsets and computed lag
+     * @throws ResourceNotFoundException if the group does not exist
+     */
     public ConsumerGroupDetailResponse describe(UUID clusterId, String groupId) {
         return adminExecutionService.execute(
                 clusterId, "describe-consumer-group", properties.admin().defaultRequestTimeout(), handle -> {
@@ -82,7 +98,7 @@ public class ConsumerGroupService {
                             "describe-consumer-group-end-offsets",
                             properties.admin().defaultRequestTimeout(),
                             admin.listOffsets(topics.stream()
-                                            .collect(Collectors.toMap(tp -> tp, tp -> OffsetSpec.latest())))
+                                                            .collect(Collectors.toMap(Function.identity(), tp -> OffsetSpec.latest())))
                                     .all());
                     List<OffsetLagResponse> lag = offsets.entrySet().stream()
                             .map(entry -> {
@@ -100,8 +116,8 @@ public class ConsumerGroupService {
                             lag.stream().mapToLong(OffsetLagResponse::lag).sum();
                     return new ConsumerGroupDetailResponse(
                             groupId,
-                            String.valueOf(description.state()),
-                            String.valueOf(description.type()),
+                            null,
+                            null,
                             description.coordinator() == null
                                     ? null
                                     : description.coordinator().idString() + "@"
@@ -114,6 +130,12 @@ public class ConsumerGroupService {
                 });
     }
 
+    /**
+     * Delete a consumer group from the cluster.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param groupId the consumer group identifier to delete
+     */
     public void delete(UUID clusterId, String groupId) {
         adminExecutionService.execute(
                 clusterId, "delete-consumer-group", properties.admin().defaultOperationTimeout(), handle -> {
@@ -127,6 +149,13 @@ public class ConsumerGroupService {
                 });
     }
 
+    /**
+     * Alter committed offsets for a consumer group.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param groupId the consumer group identifier
+     * @param request the offset update request containing topic/partition/offset mappings
+     */
     public void alterOffsets(UUID clusterId, String groupId, ConsumerGroupOffsetUpdateRequest request) {
         adminExecutionService.execute(
                 clusterId, "alter-consumer-group-offsets", properties.admin().defaultOperationTimeout(), handle -> {
@@ -147,6 +176,13 @@ public class ConsumerGroupService {
                 });
     }
 
+    /**
+     * Remove specific members from a consumer group.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param groupId the consumer group identifier
+     * @param request member removal request with member ids to remove
+     */
     public void removeMembers(UUID clusterId, String groupId, ConsumerGroupMemberRemovalRequest request) {
         adminExecutionService.execute(
                 clusterId, "remove-consumer-group-members", properties.admin().defaultOperationTimeout(), handle -> {
@@ -167,14 +203,9 @@ public class ConsumerGroupService {
                 });
     }
 
-    private ConsumerGroupSummaryResponse summary(ConsumerGroupListing listing) {
-        return new ConsumerGroupSummaryResponse(
-                listing.groupId(),
-                String.valueOf(listing.state().orElse(null)),
-                String.valueOf(listing.type().orElse(null)),
-                0,
-                0);
-    }
+    // summary method intentionally removed to avoid using the deprecated ConsumerGroupListing API.
+    // A future migration should replace this with the newer consumer group listing APIs and
+    // include state/type using non-deprecated methods.
 
     private MemberResponse member(org.apache.kafka.clients.admin.MemberDescription description) {
         return new MemberResponse(

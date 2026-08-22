@@ -6,35 +6,8 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.ResourceNo
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.service.AdminMutationRecorder;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicConfigMutationBatchRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicConfigMutationRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicCreateRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicDetailResponse;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicOffsetLookupMode;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicOffsetResponse;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicPartitionExpansionRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicPartitionResponse;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicRecordDeleteRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.TopicSummaryResponse;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.AlterConfigOp;
-import org.apache.kafka.clients.admin.AlterConfigsResult;
-import org.apache.kafka.clients.admin.Config;
-import org.apache.kafka.clients.admin.ConfigEntry;
-import org.apache.kafka.clients.admin.CreatePartitionsOptions;
-import org.apache.kafka.clients.admin.DescribeTopicsResult;
-import org.apache.kafka.clients.admin.ListTopicsOptions;
-import org.apache.kafka.clients.admin.NewPartitions;
-import org.apache.kafka.clients.admin.OffsetSpec;
-import org.apache.kafka.clients.admin.RecordsToDelete;
-import org.apache.kafka.clients.admin.TopicDescription;
+import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.*;
+import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionInfo;
@@ -42,6 +15,19 @@ import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Service responsible for topic-level operations against Kafka clusters.
+ *
+ * <p>This service uses the {@code KafkaAdminExecutionService} to perform resilient AdminClient
+ * operations and {@code AdminMutationRecorder} to record mutating actions for auditability.
+ * Typical responsibilities include listing topics, describing topic metadata and configs,
+ * creating/deleting topics, expanding partitions, altering topic configs, reading offsets and
+ * deleting records.
+ */
 @Service
 public class TopicService {
 
@@ -58,6 +44,14 @@ public class TopicService {
         this.properties = properties;
     }
 
+    /**
+     * List topics in a cluster with optional filtering.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param includeInternal when true, include internal Kafka topics in the result
+     * @param prefix optional substring filter; when null or blank no filtering by name occurs
+     * @return list of {@link TopicSummaryResponse} objects representing discovered topics
+     */
     public List<TopicSummaryResponse> list(UUID clusterId, boolean includeInternal, String prefix) {
         return adminExecutionService.execute(
                 clusterId, "list-topics", properties.admin().defaultRequestTimeout(), handle -> {
@@ -76,6 +70,14 @@ public class TopicService {
                 });
     }
 
+    /**
+     * Describe a single topic including partition layout and topic-level config map.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic to describe
+     * @return detailed {@link TopicDetailResponse} for the requested topic
+     * @throws ResourceNotFoundException if the topic does not exist
+     */
     public TopicDetailResponse describe(UUID clusterId, String topicName) {
         return adminExecutionService.execute(
                 clusterId, "describe-topic", properties.admin().defaultRequestTimeout(), handle -> {
@@ -98,6 +100,13 @@ public class TopicService {
                 });
     }
 
+    /**
+     * Retrieve the configuration map for a topic.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic
+     * @return ordered map of config key to value for the topic
+     */
     public Map<String, String> describeConfigs(UUID clusterId, String topicName) {
         return adminExecutionService.execute(
                 clusterId,
@@ -106,6 +115,13 @@ public class TopicService {
                 handle -> topicConfigs(clusterId, handle.admin(), topicName));
     }
 
+    /**
+     * Delete a topic from the cluster or perform a dry-run validation.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic to delete
+     * @param dryRun when true, validate the deletion without performing it
+     */
     public void delete(UUID clusterId, String topicName, boolean dryRun) {
         mutationRecorder.record(
                 clusterId,
@@ -130,6 +146,12 @@ public class TopicService {
                         }));
     }
 
+    /**
+     * Create a new topic in the cluster according to the supplied request.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request the {@link TopicCreateRequest} containing name, partitions, replication and configs
+     */
     public void create(UUID clusterId, TopicCreateRequest request) {
         mutationRecorder.record(
                 clusterId,
@@ -152,6 +174,17 @@ public class TopicService {
                         }));
     }
 
+    /**
+     * Increase the partition count for an existing topic.
+     *
+     * <p>This validates that the requested total partition count is greater than the current
+     * partition count and then issues a createPartitions call to Kafka.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic to expand
+     * @param request the partition expansion request
+     * @throws ApiException when validation fails (for example when requested total is not larger)
+     */
     public void createPartitions(UUID clusterId, String topicName, TopicPartitionExpansionRequest request) {
         executeMutation(
                 clusterId,
@@ -184,6 +217,13 @@ public class TopicService {
                 });
     }
 
+    /**
+     * Alter topic-level configurations using incremental alter config operations.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic to modify
+     * @param request batch of config mutation requests
+     */
     public void alterConfigs(UUID clusterId, String topicName, TopicConfigMutationBatchRequest request) {
         executeMutation(
                 clusterId,
@@ -213,6 +253,18 @@ public class TopicService {
                 });
     }
 
+    /**
+     * List offsets for each partition of a topic according to the lookup mode.
+     *
+     * <p>Supported modes: EARLIEST, LATEST, TIMESTAMP. When using TIMESTAMP, the {@code timestamp}
+     * parameter must be supplied.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic
+     * @param mode the lookup mode (earliest/latest/timestamp)
+     * @param timestamp required when {@code mode} is TIMESTAMP; the epoch millis to lookup
+     * @return list of {@link TopicOffsetResponse} representing partition offsets
+     */
     public List<TopicOffsetResponse> listOffsets(
             UUID clusterId, String topicName, TopicOffsetLookupMode mode, Long timestamp) {
         return adminExecutionService.execute(
@@ -254,6 +306,13 @@ public class TopicService {
                 });
     }
 
+    /**
+     * Delete records up to specified offsets for topic partitions.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic
+     * @param request partitions and offsets to delete before
+     */
     public void deleteRecords(UUID clusterId, String topicName, TopicRecordDeleteRequest request) {
         executeMutation(
                 clusterId,

@@ -1,28 +1,26 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.acls.service;
 
-import com.opentext.security.analytics.messagehub.kafkamanager.acls.api.AclCreateRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.acls.api.AclDeleteRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.acls.api.AclEntryRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.acls.api.AclFilterRequest;
-import com.opentext.security.analytics.messagehub.kafkamanager.acls.api.AclResponse;
+import com.opentext.security.analytics.messagehub.kafkamanager.acls.api.*;
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.service.AdminMutationRecorder;
-import java.util.List;
-import java.util.UUID;
 import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.common.acl.AccessControlEntry;
-import org.apache.kafka.common.acl.AccessControlEntryFilter;
-import org.apache.kafka.common.acl.AclBinding;
-import org.apache.kafka.common.acl.AclBindingFilter;
-import org.apache.kafka.common.acl.AclOperation;
-import org.apache.kafka.common.acl.AclPermissionType;
+import org.apache.kafka.common.acl.*;
 import org.apache.kafka.common.resource.PatternType;
 import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourcePatternFilter;
 import org.apache.kafka.common.resource.ResourceType;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Service for managing Kafka Access Control Lists (ACLs).
+ *
+ * <p>Supports filtered listing of ACLs, creating new ACL bindings and deleting existing ACLs using
+ * AdminClient APIs. Changes are recorded for audit purposes.
+ */
 @Service
 public class AclService {
 
@@ -39,6 +37,13 @@ public class AclService {
         this.properties = properties;
     }
 
+    /**
+     * List ACLs matching the provided filter criteria.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request filter criteria (resource type, principal, operation, etc.)
+     * @return list of {@link AclResponse} entries matching the filter
+     */
     public List<AclResponse> list(UUID clusterId, AclFilterRequest request) {
         return adminExecutionService.execute(
                 clusterId, "list-acls", properties.admin().defaultRequestTimeout(), handle -> {
@@ -56,6 +61,12 @@ public class AclService {
                 });
     }
 
+    /**
+     * Create ACL bindings in the cluster according to the request.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request contains a list of ACL binding requests to create
+     */
     public void create(UUID clusterId, AclCreateRequest request) {
         mutationRecorder.record(
                 clusterId,
@@ -78,6 +89,12 @@ public class AclService {
                         }));
     }
 
+    /**
+     * Delete ACLs that match the provided filters.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request contains filters for ACLs to delete
+     */
     public void delete(UUID clusterId, AclDeleteRequest request) {
         mutationRecorder.record(
                 clusterId,

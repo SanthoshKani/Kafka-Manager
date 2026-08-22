@@ -5,14 +5,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.service.AdminMutationRecorder;
-import java.util.List;
-import java.util.UUID;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.CreateTopicsOptions;
 import org.apache.kafka.clients.admin.DeleteTopicsOptions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Service providing JSON-driven topic mutation operations such as create and delete.
+ *
+ * <p>This service accepts compact JSON payloads for topic create operations and supports
+ * dry-run validation. Mutating operations are recorded via {@code AdminMutationRecorder} and
+ * executed through {@code KafkaAdminExecutionService} to enforce timeouts and error translation.
+ */
 @Service
 public class TopicMutationService {
 
@@ -32,6 +40,15 @@ public class TopicMutationService {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Create a topic using a JSON payload describing partitions and replication factor.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic to create
+     * @param payloadJson optional JSON string containing fields such as "partitions" and "replicationFactor"
+     * @param dryRun when true, only validate the request without performing the creation
+     * @throws IllegalArgumentException when the provided payload JSON is invalid
+     */
     public void create(UUID clusterId, String topicName, String payloadJson, boolean dryRun) {
         mutationRecorder.record(
                 clusterId,
@@ -59,6 +76,13 @@ public class TopicMutationService {
                         }));
     }
 
+    /**
+     * Delete a topic with optional dry-run validation.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param topicName the name of the topic to delete
+     * @param dryRun when true, validate deletion without performing it
+     */
     public void delete(UUID clusterId, String topicName, boolean dryRun) {
         mutationRecorder.record(
                 clusterId,

@@ -22,6 +22,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
+/**
+ * Wrapper around Kafka AdminClient interactions that provides resilience, timeouts, metrics and
+ * error translation.
+ *
+ * <p>All AdminClient calls should use this service so that operations are executed with a
+ * circuit-breaker, measured with Micrometer timers/counters, and converted into {@code
+ * KafkaAdminException} instances that the API layer can map to RFC-9457 problem responses.
+ */
 @Service
 public class KafkaAdminExecutionService {
 
@@ -36,6 +44,17 @@ public class KafkaAdminExecutionService {
         this.meterRegistry = meterRegistry;
     }
 
+    /**
+     * Execute an AdminClient operation with circuit-breaker protection and instrumentation.
+     *
+     * @param <T> return type of the operation
+     * @param clusterId cluster identifier used for tagging metrics and MDC
+     * @param action human-readable action name for metrics and logs
+     * @param timeout maximum duration to wait for the operation
+     * @param callback function that receives an {@link AdminClientHandle} and performs AdminClient calls
+     * @return result of the callback
+     * @throws KafkaAdminException when underlying Kafka operations fail or are translated
+     */
     @SuppressWarnings("unused")
     @CircuitBreaker(name = "kafkaAdmin", fallbackMethod = "circuitBreakerFallback")
     public <T> T execute(
@@ -75,6 +94,17 @@ public class KafkaAdminExecutionService {
         }
     }
 
+    /**
+     * Await a {@link CompletableFuture} result with a bounded timeout and translate failures.
+     *
+     * @param <T> result type
+     * @param clusterId cluster id for logging/metrics
+     * @param action action name for logs
+     * @param timeout maximum wait duration
+     * @param future future to await
+     * @return future result
+     * @throws KafkaAdminException on timeout, interruption or execution failure
+     */
     public <T> T await(UUID clusterId, String action, Duration timeout, CompletableFuture<T> future) {
         try {
             return future.get(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
@@ -93,6 +123,17 @@ public class KafkaAdminExecutionService {
         }
     }
 
+    /**
+     * Await a {@link KafkaFuture} result with a bounded timeout and translate failures.
+     *
+     * @param <T> result type
+     * @param clusterId cluster id for logging/metrics
+     * @param action action name for logs
+     * @param timeout maximum wait duration
+     * @param future KafkaFuture to await
+     * @return future result
+     * @throws KafkaAdminException on timeout, interruption or execution failure
+     */
     public <T> T await(UUID clusterId, String action, Duration timeout, KafkaFuture<T> future) {
         try {
             return future.get(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
@@ -129,6 +170,15 @@ public class KafkaAdminExecutionService {
         throw translate(clusterId, action, throwable);
     }
 
+    /**
+     * Translate low-level Kafka or runtime throwables into {@link KafkaAdminException} with
+     * appropriate HTTP status and error codes.
+     *
+     * @param clusterId cluster id used for logging context
+     * @param action human readable action name
+     * @param throwable the underlying throwable to translate
+     * @return translated {@link KafkaAdminException}
+     */
     public KafkaAdminException translate(UUID clusterId, String action, Throwable throwable) {
         log.error(
                 "Kafka admin action failed: clusterId={}, action={}, cause={}: {}",
