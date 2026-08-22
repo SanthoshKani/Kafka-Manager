@@ -7,12 +7,11 @@ import com.opentext.security.analytics.messagehub.kafkamanager.delegationtokens.
 import com.opentext.security.analytics.messagehub.kafkamanager.delegationtokens.api.DelegationTokenResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.service.AdminMutationRecorder;
-import org.apache.kafka.clients.admin.*;
-import org.springframework.stereotype.Service;
-
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import org.apache.kafka.clients.admin.*;
+import org.springframework.stereotype.Service;
 
 /**
  * Service managing Kafka delegation tokens: list, create, renew and expire operations.

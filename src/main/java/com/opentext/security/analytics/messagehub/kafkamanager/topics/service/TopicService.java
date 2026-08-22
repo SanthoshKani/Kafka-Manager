@@ -7,6 +7,9 @@ import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManag
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.service.AdminMutationRecorder;
 import com.opentext.security.analytics.messagehub.kafkamanager.topics.api.*;
+import java.time.Duration;
+import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
@@ -14,10 +17,6 @@ import org.apache.kafka.common.TopicPartitionInfo;
 import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-
-import java.time.Duration;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service responsible for topic-level operations against Kafka clusters.

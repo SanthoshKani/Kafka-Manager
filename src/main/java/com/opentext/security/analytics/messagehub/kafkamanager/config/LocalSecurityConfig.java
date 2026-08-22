@@ -17,7 +17,13 @@ public class LocalSecurityConfig {
     SecurityFilterChain localSecurityFilterChain(HttpSecurity http) {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info", "/v3/api-docs/**", "/openapi.yaml")
+                .authorizeHttpRequests(auth -> auth.requestMatchers(
+                                HttpMethod.GET,
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/v3/api-docs/**",
+                                "/openapi.yaml")
                         .permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
@@ -26,4 +32,3 @@ public class LocalSecurityConfig {
         return http.build();
     }
 }
-

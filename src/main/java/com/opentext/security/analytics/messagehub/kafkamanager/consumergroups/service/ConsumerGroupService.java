@@ -4,17 +4,16 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.ResourceNo
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
 import com.opentext.security.analytics.messagehub.kafkamanager.consumergroups.api.*;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
-import org.apache.kafka.clients.admin.*;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
-import org.springframework.stereotype.Service;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.kafka.clients.admin.*;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.stereotype.Service;
 
 /**
  * Service that manages Kafka consumer groups: discovery, description, offset management and member removal.
@@ -49,15 +48,9 @@ public class ConsumerGroupService {
                                     clusterId,
                                     "list-consumer-groups",
                                     properties.admin().defaultRequestTimeout(),
-                                    admin.listConsumerGroups()
-                                            .all())
+                                    admin.listConsumerGroups().all())
                             .stream()
-                            .map(listing -> new ConsumerGroupSummaryResponse(
-                                    listing.groupId(),
-                                    null,
-                                    null,
-                                    0,
-                                    0))
+                            .map(listing -> new ConsumerGroupSummaryResponse(listing.groupId(), null, null, 0, 0))
                             .toList();
                 });
     }
@@ -98,7 +91,7 @@ public class ConsumerGroupService {
                             "describe-consumer-group-end-offsets",
                             properties.admin().defaultRequestTimeout(),
                             admin.listOffsets(topics.stream()
-                                                            .collect(Collectors.toMap(Function.identity(), tp -> OffsetSpec.latest())))
+                                            .collect(Collectors.toMap(Function.identity(), tp -> OffsetSpec.latest())))
                                     .all());
                     List<OffsetLagResponse> lag = offsets.entrySet().stream()
                             .map(entry -> {

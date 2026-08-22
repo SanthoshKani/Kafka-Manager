@@ -2,6 +2,20 @@ logging:
   level:
     com.opentext.security.analytics.messagehub.kafkamanager: DEBUG
 app:
+  metrics:
+    broker-jmx:
+      enabled: true
+      poll-interval: 30s
+      targets:
+        - name: broker1
+          host: broker1
+          port: 9101
+        - name: broker2
+          host: broker2
+          port: 9101
+        - name: broker3
+          host: broker3
+          port: 9101
   rate-limit:
     enabled: false
   admin:

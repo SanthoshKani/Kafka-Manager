@@ -5,6 +5,12 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.KafkaAdmin
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.errors.AuthenticationException;
@@ -14,13 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-
-import java.time.Duration;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 
 /**
  * Wrapper around Kafka AdminClient interactions that provides resilience, timeouts, metrics and
@@ -57,11 +56,7 @@ public class KafkaAdminExecutionService {
      */
     @SuppressWarnings("unused")
     @CircuitBreaker(name = "kafkaAdmin", fallbackMethod = "circuitBreakerFallback")
-    public <T> T execute(
-            UUID clusterId,
-            String action,
-            Duration timeout,
-            Function<AdminClientHandle, T> callback) {
+    public <T> T execute(UUID clusterId, String action, Duration timeout, Function<AdminClientHandle, T> callback) {
         long timeoutMs = timeout.toMillis();
         Timer.Sample sample = Timer.start(meterRegistry);
         String clusterIdStr = clusterId.toString();

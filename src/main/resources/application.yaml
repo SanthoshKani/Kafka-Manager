@@ -68,6 +68,15 @@ logging:
 
 app:
   service-name: kafka-manager
+  metrics:
+    broker-jmx:
+      enabled: false
+      poll-interval: 30s
+    admin-derived:
+      enabled: true
+      poll-interval: 60s
+      operation-timeout: 30s
+      topic-exclusion-patterns: []
   rate-limit:
     enabled: true
     capacity: 300

@@ -12,4 +12,3 @@ public class KafkaAdminClientConfiguration {
         return Admin.create(propertiesFactory.create(properties));
     }
 }
-

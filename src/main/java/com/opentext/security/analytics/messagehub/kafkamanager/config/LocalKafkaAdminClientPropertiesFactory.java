@@ -1,13 +1,12 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.config;
 
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaEndpointSupport;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Component
 @Profile("local")
@@ -22,7 +21,8 @@ public class LocalKafkaAdminClientPropertiesFactory implements KafkaAdminClientP
                 KafkaEndpointSupport.normalizeEndpointList(admin.bootstrapServers()));
         adminClientProperties.put(AdminClientConfig.CLIENT_ID_CONFIG, properties.serviceName() + "-admin");
         adminClientProperties.put(
-                AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, Math.toIntExact(admin.defaultRequestTimeout().toMillis()));
+                AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
+                Math.toIntExact(admin.defaultRequestTimeout().toMillis()));
         adminClientProperties.put(
                 AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG,
                 Math.toIntExact(admin.defaultOperationTimeout().toMillis()));

@@ -3,10 +3,9 @@ package com.opentext.security.analytics.messagehub.kafkamanager.clientmetrics.se
 import com.opentext.security.analytics.messagehub.kafkamanager.clientmetrics.api.ClientMetricResourceResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
+import java.util.UUID;
 import org.apache.kafka.clients.admin.Admin;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 /**
  * Service that exposes available client metrics resources from Kafka brokers.

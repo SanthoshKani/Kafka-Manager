@@ -1,4 +1,12 @@
 app:
+  metrics:
+    broker-jmx:
+      enabled: ${APP_METRICS_BROKER_JMX_ENABLED:false}
+      poll-interval: ${APP_METRICS_BROKER_JMX_POLL_INTERVAL:30s}
+    admin-derived:
+      enabled: ${APP_METRICS_ADMIN_DERIVED_ENABLED:true}
+      poll-interval: ${APP_METRICS_ADMIN_DERIVED_POLL_INTERVAL:60s}
+      operation-timeout: ${APP_METRICS_ADMIN_DERIVED_OPERATION_TIMEOUT:30s}
   security:
     basic-auth:
       username: ${KAFKA_MANAGER_BASIC_AUTH_USERNAME:admin}

@@ -25,7 +25,6 @@ public final class KafkaEndpointSupport {
         return String.join(",", normalized);
     }
 
-
     public static String normalizeSecurityProtocol(String securityProtocol) {
         if (securityProtocol == null) {
             return null;

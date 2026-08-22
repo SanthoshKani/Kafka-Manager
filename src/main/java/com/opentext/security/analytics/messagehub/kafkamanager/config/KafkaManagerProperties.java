@@ -2,21 +2,17 @@ package com.opentext.security.analytics.messagehub.kafkamanager.config;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import java.time.Duration;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
-
-import java.time.Duration;
 
 @Validated
 @ConfigurationProperties(prefix = "app")
 public record KafkaManagerProperties(
-        @NotBlank String serviceName,
-        Security security,
-        Admin admin,
-        RateLimit rateLimit) {
+        @NotBlank String serviceName, Security security, Admin admin, Metrics metrics, RateLimit rateLimit) {
 
-    public record Security(
-            BasicAuth basicAuth, OAuth2ResourceServer oauth2ResourceServer) {}
+    public record Security(BasicAuth basicAuth, OAuth2ResourceServer oauth2ResourceServer) {}
 
     public record BasicAuth(String username, String password) {}
 
@@ -28,6 +24,49 @@ public record KafkaManagerProperties(
             Ssl ssl,
             Duration defaultRequestTimeout,
             Duration defaultOperationTimeout) {}
+
+    public record Metrics(BrokerJmx brokerJmx, AdminDerived adminDerived) {
+        public Metrics {
+            brokerJmx = brokerJmx == null ? new BrokerJmx(false, Duration.ofSeconds(30), List.of()) : brokerJmx;
+            adminDerived = adminDerived == null ? new AdminDerived((Duration) null) : adminDerived;
+        }
+
+        public Metrics(AdminDerived adminDerived) {
+            this(new BrokerJmx(false, Duration.ofSeconds(30), List.of()), adminDerived);
+        }
+    }
+
+    public record BrokerJmx(boolean enabled, Duration pollInterval, List<BrokerJmxTarget> targets) {
+        public BrokerJmx {
+            targets = targets == null ? List.of() : List.copyOf(targets);
+        }
+    }
+
+    public record BrokerJmxTarget(String name, String host, int port) {}
+
+    public record AdminDerived(
+            Boolean enabled, Duration pollInterval, Duration operationTimeout, List<String> topicExclusionPatterns) {
+
+        public AdminDerived {
+            enabled = enabled == null ? Boolean.TRUE : enabled;
+            pollInterval = pollInterval == null ? Duration.ofSeconds(60) : pollInterval;
+            operationTimeout = operationTimeout == null ? Duration.ofSeconds(30) : operationTimeout;
+            topicExclusionPatterns = topicExclusionPatterns == null ? List.of() : List.copyOf(topicExclusionPatterns);
+
+            validatePositiveDuration("app.metrics.admin-derived.poll-interval", pollInterval);
+            validatePositiveDuration("app.metrics.admin-derived.operation-timeout", operationTimeout);
+        }
+
+        public AdminDerived(Duration pollInterval) {
+            this(Boolean.TRUE, pollInterval, Duration.ofSeconds(30), List.of());
+        }
+
+        private static void validatePositiveDuration(String propertyName, Duration duration) {
+            if (duration.compareTo(Duration.ZERO) <= 0) {
+                throw new IllegalArgumentException(propertyName + " must be greater than zero");
+            }
+        }
+    }
 
     public record Ssl(
             String trustStore,

@@ -1,15 +1,14 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opentext.security.analytics.messagehub.kafkamanager.common.ProblemResponseWriter;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import java.time.Duration;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class RateLimitingConfigTest {
 
@@ -22,11 +21,9 @@ class RateLimitingConfigTest {
                                 new KafkaManagerProperties.BasicAuth("testuser", "testpass"),
                                 new KafkaManagerProperties.OAuth2ResourceServer("", "")),
                         new KafkaManagerProperties.Admin(
-                                "localhost:9092",
-                                "PLAINTEXT",
-                                null,
-                                Duration.ofSeconds(1),
-                                Duration.ofSeconds(1)),
+                                "localhost:9092", "PLAINTEXT", null, Duration.ofSeconds(1), Duration.ofSeconds(1)),
+                        new KafkaManagerProperties.Metrics(
+                                new KafkaManagerProperties.AdminDerived(Duration.ofSeconds(30))),
                         new KafkaManagerProperties.RateLimit(true, 1, Duration.ofMinutes(1), "X-Client-Id")),
                 new ProblemResponseWriter(new ObjectMapper()));
 

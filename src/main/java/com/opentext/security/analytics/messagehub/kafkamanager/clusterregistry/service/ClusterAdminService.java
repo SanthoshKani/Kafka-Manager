@@ -7,6 +7,8 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.TopicParti
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.service.AdminMutationRecorder;
+import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.LogDirDescription;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
@@ -17,9 +19,6 @@ import org.apache.kafka.common.TopicPartitionReplica;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Cluster-level administrative service for leader election, partition reassignments and log-dir operations.

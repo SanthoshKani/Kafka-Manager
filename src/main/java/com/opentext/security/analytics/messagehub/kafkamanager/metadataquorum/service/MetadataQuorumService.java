@@ -5,10 +5,9 @@ import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaA
 import com.opentext.security.analytics.messagehub.kafkamanager.metadataquorum.api.MetadataQuorumObserverResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.metadataquorum.api.MetadataQuorumResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.metadataquorum.api.MetadataQuorumVoterResponse;
+import java.util.UUID;
 import org.apache.kafka.clients.admin.Admin;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 /**
  * Service to retrieve metadata quorum (KRaft) information from a Kafka cluster.

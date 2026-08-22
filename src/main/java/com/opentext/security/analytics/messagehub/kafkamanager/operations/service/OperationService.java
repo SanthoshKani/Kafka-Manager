@@ -10,13 +10,12 @@ import com.opentext.security.analytics.messagehub.kafkamanager.operations.api.Op
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.api.OperationSummaryResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.api.SubmitOperationRequest;
 import com.opentext.security.analytics.messagehub.kafkamanager.operations.domain.*;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
 
 /**
  * Service managing asynchronous operations persisted in the operations store.
@@ -35,9 +34,7 @@ public class OperationService {
     private final ObjectMapper objectMapper;
 
     public OperationService(
-            OperationStore operationRepository,
-            OperationEventStore eventRepository,
-            ObjectMapper objectMapper) {
+            OperationStore operationRepository, OperationEventStore eventRepository, ObjectMapper objectMapper) {
         this.operationRepository = operationRepository;
         this.eventRepository = eventRepository;
         this.objectMapper = objectMapper;
