@@ -14,7 +14,6 @@ Kafka Manager is a Spring Boot application for managing Apache Kafka clusters. I
 - **Caffeine** for AdminClient caching
 - **Bucket4j** for rate limiting
 - **Resilience4j** for circuit breaker
-- **Flyway** for database migrations
 - **OpenAPI/Swagger** for API documentation
 - **Gradle** for build
 
@@ -123,7 +122,7 @@ Any Kafka Admin Operation
 ```
 
 **Key Classes:**
-- `AdminClientRegistry` - Cache + AdminClient builder
+- `KafkaAdminClientConfiguration` - Spring bean that builds/configures AdminClient handles
 - `KafkaClientPropertyPolicyService` - Validates allowed properties
 
 ### 3. Topic Management Flow
@@ -201,6 +200,38 @@ app:
 # Prod profile: Basic Auth / OAuth2 Resource Server plus SSL or mTLS Kafka settings.
 ```
 
+### Metrics
+
+This project includes a focused metrics subsystem. The code lives under
+`src/main/java/.../metrics/` and is split into collectors, runtime aggregators,
+and small REST controllers. Key points:
+
+- Admin-derived metrics: collectors poll the Kafka AdminClient for cluster
+  information (topic counts, leader distribution, partition skew, etc.) and
+  produce lightweight snapshots. The polling interval is controlled by
+  `APP_METRICS_ADMIN_DERIVED_POLL_INTERVAL` (example: `60s`) and can be set via
+  environment or compose variables.
+- JMX collection: `BrokerJmxMetricsCollectorService` reads broker MBeans via
+  JMX. Broker containers expose JMX ports in the compose files (e.g.
+  `19111`, `19112`, `19113`) — ensure JMX ports are reachable if you enable
+  remote JMX collection.
+- Prometheus scraping: the project includes a `PrometheusScraper` which can
+  pull and normalise text-format Prometheus endpoints from brokers. If you
+  rely on Prometheus scraping, ensure the broker Prometheus endpoints are
+  reachable from the process running the scraper.
+
+Inspect the controllers in `metrics/api` for the exact REST paths; examples
+include `BrokerJmxMetricsController` and `StructuralMetricsController`. A
+handy actuator endpoint is also available at `/management/metrics` for
+standard JVM and Spring metrics.
+
+Troubleshooting metrics
+- No admin-derived metrics: verify the application can reach the Kafka
+  bootstrap servers and that `APP_METRICS_ADMIN_DERIVED_POLL_INTERVAL` is set
+  to a sensible value.
+- No JMX metrics: ensure the host JMX ports are open and that `KAFKA_JMX_HOSTNAME`
+  and `KAFKA_JMX_PORT` are correctly set on the broker containers.
+
 ### Data Persistence
 
 This project uses in-memory repositories for development and testing. The in-memory stores are implemented in the `operations.service` package and provide thread-safe ConcurrentHashMap-backed storage. Data is not persisted across restarts. If you need durability, swap in a persistent implementation behind the `OperationStore` abstractions.
@@ -218,12 +249,11 @@ Located in `src/test/java/...`
 ./gradlew integrationTest
 ```
 Requires:
-- PostgreSQL (via docker-compose)
 - Kafka cluster (via docker-compose)
 Located in `src/integrationTest/java/...`
 
 ### Test Profiles
-- `test` - Unit tests with H2 in-memory DB
+- `test` - Unit tests (in-memory stores)
 - `it` - Integration tests with Testcontainers
 
 ## Key Design Patterns
@@ -259,7 +289,7 @@ All errors returned as `application/problem+json` via `ApiProblemAdvice` and `Pr
 4. Update `ClusterRegistryService.apply()` methods
 5. Update `AdminClientRegistry.buildHandle()` to configure the property
 6. Add to `KafkaClientPropertyPolicyService.ALLOWED_KEYS` if it's a client property
-7. Run Flyway migration if schema changes
+7. If persistent storage is added later, document migration steps and schema changes accordingly
 
 ## Common Tasks
 
@@ -272,6 +302,66 @@ docker-compose up -d
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
+## Running Compose on a remote host (external compose)
+
+If you prefer to run the Kafka infrastructure on a remote server (for
+example `10.71.135.15`) and connect your IDE / local instance of the application
+to that remote infrastructure, use the included `external-compose.yaml` which is
+adapted for remote access.
+
+Quick steps (server-side):
+
+1. Copy `external-compose.yaml` to the remote host (10.71.135.15). Example using scp:
+
+```powershell
+scp .\external-compose.yaml user@10.71.135.15:/home/user/
+```
+
+2. SSH to the server and start the stack:
+
+```bash
+ssh user@10.71.135.15
+docker compose -f external-compose.yaml up -d
+```
+
+3. Ensure the following external ports are open in the server firewall / cloud security group:
+
+- Broker client ports: 19092, 29092, 39092
+- Controller ports (KRaft controller listeners): 19093, 29093, 39093
+ - JMX ports: 19111, 19112, 19113 (optional, only if you need JMX access)
+
+Connect your local IDE / app to the remote stack:
+
+- Set the bootstrap servers to the remote host's advertised broker ports:
+
+  - 10.71.135.15:19092,10.71.135.15:29092,10.71.135.15:39092
+
+- If you run the application locally (PowerShell):
+
+```powershell
+$env:BOOTSTRAP_SERVERS_CONFIG = '10.71.135.15:19092,10.71.135.15:29092,10.71.135.15:39092'
+$env:SPRING_PROFILES_ACTIVE = 'local'
+./gradlew bootRun
+```
+
+- Or with Bash (Linux/macOS):
+
+```bash
+export BOOTSTRAP_SERVERS_CONFIG='10.71.135.15:19092,10.71.135.15:29092,10.71.135.15:39092'
+export SPRING_PROFILES_ACTIVE=local
+./gradlew bootRun
+```
+
+Notes:
+
+  - `external-compose.yaml` intentionally advertises broker endpoints using the
+  server IP (so clients can reach the brokers across the network). If your
+  server has multiple interfaces, use the interface reachable by your laptop.
+  - The external compose intentionally does not require external persistent storage; the application uses in-memory stores by default.
+- Avoid running `kafka-manager` inside the remote compose if you plan to run
+  the application locally; running two instances can cause port conflicts or
+  confuse integration tests.
+
 ### Build
 ```bash
 ./gradlew build
@@ -282,18 +372,17 @@ docker-compose up -d
 ./gradlew openapiGenerate
 ```
 
-### Database Migration
-```bash
-./gradlew flywayMigrate
-```
+### Persistent Storage Migration
+
+This project does not use persistent-storage migrations in ordinary development: it uses in-memory stores by default. If durable storage is added later, document migration steps at that time.
 
 ## Troubleshooting
 
 ### AdminClient Connection Issues
-- Check cluster configuration in DB
-- Verify secrets are correctly encrypted/decrypted
+- Check cluster configuration in application configuration or cluster registry
+- Verify secrets are correctly provided in configuration (do not log secrets)
 - Check Kafka broker listener configuration matches cluster config
-- Review `AdminClientRegistry.buildHandle()` for property mapping
+- Review `KafkaAdminClientConfiguration` and `KafkaAdminExecutionService` for AdminClient setup and property mapping
 
 ### Rate Limiting
 - Check `app.rateLimit.enabled`

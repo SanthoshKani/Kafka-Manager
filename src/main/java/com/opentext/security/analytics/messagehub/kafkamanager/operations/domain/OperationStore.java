@@ -1,16 +1,16 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.operations.domain;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 /**
- * In-memory abstraction for storing operations. Replaces JPA repository usage so the
- * application can run without a PostgreSQL database.
+ * In-memory abstraction for storing operations.
  */
 public interface OperationStore {
 

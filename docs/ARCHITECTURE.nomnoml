@@ -30,16 +30,15 @@
 [common/ApiException|base exception|.service]
 
 # Cluster Registry Domain
-[clusterregistry/domain/ClusterEntity|JPA entity\nSSL/SASL config|.entity]
-[clusterregistry/domain/SecretEntity|encrypted secrets|.entity]
-[clusterregistry/domain/ClusterRepository|JPA repo|.repository]
-[clusterregistry/domain/SecretRepository|JPA repo|.repository]
+[clusterregistry/domain/ClusterModel|Cluster config model\nSSL/SASL config|.entity]
+[clusterregistry/domain/SecretModel|encrypted secret representation|.entity]
+[clusterregistry/domain/ClusterStore|In-memory store / abstraction|.repository]
+[clusterregistry/domain/SecretStore|In-memory secret store / abstraction|.repository]
 
 # Cluster Registry Services
 [clusterregistry/service/ClusterRegistryService|CRUD, validation|.service]
 [clusterregistry/service/ClusterAdminService|reassign, elect|.service]
-[clusterregistry/service/SecretCipherService|AES-256-GCM|.service]
-[clusterregistry/service/SecretStoreService|secret persistence|.service]
+# SecretCipherService/SecretStoreService not present in this codebase; secrets are handled via configuration
 
 # Cluster Registry API
 [clusterregistry/api/ClusterController|REST: CRUD clusters|.controller]
@@ -83,7 +82,7 @@
 [operations/service/OperationsService|operation tracking|.service]
 
 # External Systems
-[PostgreSQL|Database|.external]
+[Kafka Cluster|Brokers + Controllers|.external]
 [Kafka Cluster|Brokers + Controllers|.external]
 [Auth Server|OAuth2/OIDC|.external]
 
@@ -145,8 +144,5 @@ ClientMetricsController --> ClientMetricsService
 ClientMetricsService --> AdminClientRegistry
 
 OperationsController --> OperationsService
-OperationsService --> AdminClientRegistry
-
-ClusterRepository --> PostgreSQL
-SecretRepository --> PostgreSQL
+OperationsService --> KafkaAdminClientConfiguration
 ```

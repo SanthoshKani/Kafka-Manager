@@ -67,7 +67,7 @@ Kafka-Manager/
 │   │   └── resources/
 │   │       ├── application.yaml
 │   │       ├── application-local.yml
-│   │       └── db/migration/     # Flyway migrations
+│   │       └── db/               # optional resources
 │   ├── test/                     # Unit tests
 ├── compose.yaml                  # Docker Compose for local dev
 ├── build.gradle                  # Gradle build

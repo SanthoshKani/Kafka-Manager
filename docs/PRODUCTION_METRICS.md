@@ -68,6 +68,43 @@ The following are still best collected from Kafka broker JMX or a JMX exporter i
 - Partition count
 - Under-replicated partitions
 
+## Runtime aggregation and diagnostics endpoints (new)
+The application exposes read-only REST endpoints that report runtime metric availability, derived rates, and diagnostic metadata. These endpoints read only from in-memory sample and admin stores — they do NOT perform synchronous scrapes or AdminClient calls during user requests.
+
+Key characteristics:
+- Read-only: data is produced from cached sample stores and admin snapshots only.
+- No synchronous scraping: requests must never trigger a network scrape to a broker or controller.
+- Supported windows: initially only `1m` (one minute) is supported; unsupported windows are rejected with the repository-standard validation response.
+- Rate derivation: monotonic counters are converted to per-minute rates using two samples (earliest at-or-before window start and latest); decreases are treated as counter resets.
+- Gauge aggregation: time-weighted average over the window (RollingGaugeAggregator) when adequate coverage exists.
+- Availability & status: each metric includes source backend, collection timestamps, freshness, and an availability status (e.g. OK, INSUFFICIENT_DATA, COUNTER_RESET, UNAVAILABLE).
+- Security & gating: diagnostics are feature-gated and the diagnostics endpoint is admin-only by repository convention.
+- No sensitive data: diagnostics return metric names and label key names only; they do NOT include label values, headers, credentials, or arbitrary scrape payloads.
+
+Primary endpoints:
+- `GET /api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics?window=1m`
+  - Broker-level view: derived per-minute rates, gauge averages, idle percents, request/traffic rates, source backend and timestamps, and admin structural values for comparison (e.g. leader count, under-replicated partitions).
+- `GET /api/v1/clusters/{clusterId}/topics/{topic}/metrics?window=1m[&perBroker=true]`
+  - Topic-level aggregates across brokers. Optional per-broker breakdown (`perBroker=true`). Returns common topic metrics such as bytes in/out per minute, messages in per minute, failed produce/fetch per minute when available. Unavailable metrics are explicitly represented.
+- `GET /api/v1/clusters/{clusterId}/metrics?window=1m`
+  - Cluster-level summary combining Admin-derived structural metrics and aggregated runtime availability. Preserves independent timestamps for Admin and runtime data and reports expected/fresh/stale/unavailable broker counts.
+- `GET /api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics`
+  - Admin-only diagnostics (feature disabled by default). Returns the recognized exporter metric source names mapped to canonical metric names and the set of label keys that the system expects for each metric, plus an Admin snapshot for structural comparison. Response size is limited (configurable via `app.metrics.prometheus-scrape.diagnostics-max-items`, default 500).
+
+Configuration and properties:
+- `app.metrics.prometheus-scrape.diagnostics-enabled` (default: false) — feature gate for diagnostics endpoint.
+- `app.metrics.prometheus-scrape.diagnostics-max-items` (default: 500) — limits items returned by diagnostics to avoid excessively large responses.
+
+Mapping and validation notes:
+- Metric canonicalization is performed by `MetricMapper` which includes metadata for label key names. Diagnostics surface those canonical names and label keys so operators can validate exporter outputs without exposing values.
+- Admin-derived structural metrics (from `AdminClient`) are considered the structural source of truth. Runtime broker or controller gauges are exposed for comparison but are not used to overwrite Admin-derived values.
+- Leader-election and other counters are treated as monotonic counters; decreases are reported as counter resets and marked accordingly in availability status.
+
+Testing and safety:
+- Endpoints are covered by unit tests that verify authorization, feature gating, counter-reset handling, controller transitions, unsupported window validation, topic aggregation (including special characters), and partial/unavailable broker scenarios.
+- The diagnostics endpoint only returns metric names + label keys (no label values or scrape contents).
+
+
 ## How the metrics should be collected in production
 
 ### 1. Admin-derived structural metrics
