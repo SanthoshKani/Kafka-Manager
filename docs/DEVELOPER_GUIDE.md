@@ -202,35 +202,23 @@ app:
 
 ### Metrics
 
-This project includes a focused metrics subsystem. The code lives under
-`src/main/java/.../metrics/` and is split into collectors, runtime aggregators,
-and small REST controllers. Key points:
+This project includes a focused metrics subsystem under `src/main/java/.../metrics/`, split into collectors, runtime aggregators, and REST controllers.
 
-- Admin-derived metrics: collectors poll the Kafka AdminClient for cluster
-  information (topic counts, leader distribution, partition skew, etc.) and
-  produce lightweight snapshots. The polling interval is controlled by
-  `APP_METRICS_ADMIN_DERIVED_POLL_INTERVAL` (example: `60s`) and can be set via
-  environment or compose variables.
-- JMX collection: `BrokerJmxMetricsCollectorService` reads broker MBeans via
-  JMX. Broker containers expose JMX ports in the compose files (e.g.
-  `19111`, `19112`, `19113`) — ensure JMX ports are reachable if you enable
-  remote JMX collection.
-- Prometheus scraping: the project includes a `PrometheusScraper` which can
-  pull and normalise text-format Prometheus endpoints from brokers. If you
-  rely on Prometheus scraping, ensure the broker Prometheus endpoints are
-  reachable from the process running the scraper.
+**Primary Metric Source: JMX Broker Collection (Preferred in Local & Production)**
+- **Broker JMX Collection (Preferred)**: `BrokerJmxMetricsCollectorService` connects directly to Kafka broker MBeans via JMX ports (`19111`, `19112`, `19113`). This provides real-time broker request rates, request latencies, queue metrics, topic throughput, and idle percentages without requiring an external Prometheus sidecar or exporter.
+  - **Local & Production Default**: Enabled by default (`app.metrics.broker-jmx.enabled=true`).
+  - Configure target broker JMX host/ports under `app.metrics.broker-jmx.targets`.
+  - Accessible via `GET /api/v1/metrics/broker-jmx`.
+- **Admin-Derived Metrics**: `AdminDerivedMetricsCollector` queries Kafka cluster metadata via the `AdminClient` (broker counts, leader distribution, partition counts, under-replicated partitions, controller ID) and maintains structured snapshots.
+  - Enabled by default (`app.metrics.admin-derived.enabled=true`, poll interval default: `60s`).
+  - Accessible via `GET /api/v1/metrics/structural` and `GET /api/v1/clusters/{clusterId}/metrics/structural`.
+- **Prometheus Scraping (Alternative / Secondary)**: `PrometheusScraper` pulls text-format Prometheus endpoints from brokers when configured.
+  - Disabled by default (`app.metrics.prometheus-scrape.enabled=false`) in favor of direct JMX collection.
+- **Actuator Endpoints**: Spring Boot Actuator exposes JVM and application metrics at `GET /management/prometheus`, `GET /management/health`, and `GET /management/info`.
 
-Inspect the controllers in `metrics/api` for the exact REST paths; examples
-include `BrokerJmxMetricsController` and `StructuralMetricsController`. A
-handy actuator endpoint is also available at `/management/metrics` for
-standard JVM and Spring metrics.
-
-Troubleshooting metrics
-- No admin-derived metrics: verify the application can reach the Kafka
-  bootstrap servers and that `APP_METRICS_ADMIN_DERIVED_POLL_INTERVAL` is set
-  to a sensible value.
-- No JMX metrics: ensure the host JMX ports are open and that `KAFKA_JMX_HOSTNAME`
-  and `KAFKA_JMX_PORT` are correctly set on the broker containers.
+#### Troubleshooting Metrics
+- **JMX Metrics Unavailable**: Ensure host JMX ports (`19111`, `19112`, `19113`) are reachable from the application runtime and that `KAFKA_JMX_PORT` and `KAFKA_JMX_HOSTNAME` match the broker configuration.
+- **Admin-Derived Metrics Missing**: Verify connectivity to Kafka bootstrap servers and confirm the `AdminClient` circuit breaker status in Actuator health.
 
 ### Data Persistence
 
@@ -448,18 +436,380 @@ This project does not use persistent-storage migrations in ordinary development:
 - Review `KafkaAdminExecutionService` configuration
 - Check Resilience4j metrics
 
-## Useful Commands
+## Local REST API Testing with cURL
+
+All endpoints can be tested against a locally running Kafka Manager instance (`http://localhost:8080`) using the `local` profile. Replace `CLUSTER_ID` with your cluster UUID (e.g. `11111111-1111-1111-1111-111111111111`).
+
+### 1. Documentation & Actuator Endpoints
 
 ```bash
-# View API docs
-open http://localhost:8080/swagger-ui.html
+# Swagger UI interactive interface
+curl -s http://localhost:8080/swagger-ui/index.html
 
-# Health check
-curl http://localhost:8080/actuator/health
+# OpenAPI 3.0 Document (JSON)
+curl -s http://localhost:8080/v3/api-docs
 
-# Metrics
-curl http://localhost:8080/actuator/metrics
+# OpenAPI 3.0 Document (YAML)
+curl -s http://localhost:8080/openapi.yaml
 
-# List clusters
-curl -H "X-API-Key: test" http://localhost:8080/api/v1/clusters
+# Actuator Health Probe
+curl -s http://localhost:8080/management/health
+
+# Actuator Info
+curl -s http://localhost:8080/management/info
+
+# Prometheus Scrape Metrics (JVM, Spring, and application counters)
+curl -s http://localhost:8080/management/prometheus
+```
+
+---
+
+### 2. Broker Management
+
+```bash
+# List all brokers and controller status
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/brokers
+
+# Describe broker configuration (e.g. broker id 101)
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/brokers/101/configs
+
+# Alter broker dynamic configuration (incremental mutation)
+curl -s -X PATCH http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/brokers/101/configs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "changes": [
+      {
+        "name": "log.cleaner.min.compaction.lag.ms",
+        "value": "0",
+        "operation": "SET"
+      }
+    ]
+  }'
+```
+
+---
+
+### 3. Topic Management
+
+```bash
+# List all topics (excluding internal topics)
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics
+
+# List all topics including internal topics
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics?includeInternal=true"
+
+# Create a new topic
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topicName": "my-sample-topic",
+    "partitions": 3,
+    "replicationFactor": 1,
+    "configs": {
+      "cleanup.policy": "delete",
+      "retention.ms": "604800000"
+    }
+  }'
+
+# Describe topic metadata, ISR, partitions, and configs
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic
+
+# Describe topic configs as key-value map
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic/configs
+
+# Alter topic configuration (batch mutation)
+curl -s -i -X PATCH http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic/configs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "changes": [
+      {
+        "name": "retention.ms",
+        "value": "3600000",
+        "operation": "SET"
+      }
+    ]
+  }'
+
+# Expand topic partition count (e.g. expand to 4 partitions)
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic/partitions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "totalPartitions": 4
+  }'
+
+# List latest partition offsets for a topic
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic/offsets?mode=LATEST"
+
+# Delete records up to specified offsets
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic/records/delete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "partitions": [
+      {
+        "partition": 0,
+        "beforeOffset": 0
+      }
+    ]
+  }'
+
+# Delete topic (supports ?dryRun=true)
+curl -s -i -X DELETE http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic
+```
+
+---
+
+### 4. Consumer Group Management
+
+```bash
+# List all consumer groups
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/consumer-groups
+
+# Describe a consumer group (coordinator, members, lag, offsets)
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/consumer-groups/my-consumer-group
+
+# Alter consumer group committed offsets
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/consumer-groups/my-consumer-group/offsets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "offsets": [
+      {
+        "topic": "my-sample-topic",
+        "partition": 0,
+        "offset": 0
+      }
+    ]
+  }'
+
+# Remove members from a consumer group
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/consumer-groups/my-consumer-group/members/remove \
+  -H "Content-Type: application/json" \
+  -d '{
+    "memberIds": ["member-1-guid"]
+  }'
+
+# Delete a consumer group
+curl -s -i -X DELETE http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/consumer-groups/my-consumer-group
+```
+
+---
+
+### 5. Cluster Admin & Actions
+
+```bash
+# Trigger preferred leader election
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/actions/leader-election \
+  -H "Content-Type: application/json" \
+  -d '{
+    "electionType": "PREFERRED",
+    "topicPartitions": [
+      {
+        "topic": "my-sample-topic",
+        "partition": 0
+      }
+    ]
+  }'
+
+# List active partition reassignments
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/actions/partition-reassignments
+
+# Start partition reassignment plan
+curl -s -i -X PUT http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/actions/partition-reassignments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reassignments": [
+      {
+        "topic": "my-sample-topic",
+        "partition": 0,
+        "targetReplicas": [101, 102]
+      }
+    ]
+  }'
+
+# Describe log directories across brokers
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/actions/log-dirs?brokerIds=101,102,103"
+
+# Alter replica log directories
+curl -s -i -X PUT http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/actions/log-dirs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "moves": [
+      {
+        "topic": "my-sample-topic",
+        "partition": 0,
+        "brokerId": 101,
+        "targetLogDir": "/var/lib/kafka/data"
+      }
+    ]
+  }'
+```
+
+---
+
+### 6. Metadata Quorum (KRaft) & Client Metrics
+
+```bash
+# Get KRaft metadata quorum status (voters, leader, observers, high watermark)
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/metadata-quorum
+
+# List discovered client metric resources
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/client-metrics
+```
+
+---
+
+### 7. Access Control Lists (ACLs)
+
+```bash
+# List all ACLs
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/acls
+
+# Create ACL entries
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/acls \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bindings": [
+      {
+        "resourceType": "TOPIC",
+        "resourceName": "my-sample-topic",
+        "patternType": "LITERAL",
+        "principal": "User:alice",
+        "host": "*",
+        "operation": "READ",
+        "permissionType": "ALLOW"
+      }
+    ]
+  }'
+
+# Delete ACL entries matching filter
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/acls/delete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filter": {
+      "resourceType": "TOPIC",
+      "resourceName": "my-sample-topic",
+      "patternType": "LITERAL",
+      "principal": "User:alice",
+      "host": "*",
+      "operation": "READ",
+      "permissionType": "ALLOW"
+    }
+  }'
+```
+
+---
+
+### 8. SCRAM Credentials
+
+```bash
+# Describe SCRAM credentials for user(s)
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/scram/users?userNames=alice,bob"
+
+# Upsert SCRAM credential for a user
+curl -s -i -X PUT http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/scram/users/alice \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mechanism": "SCRAM-SHA-512",
+    "iterations": 4096,
+    "password": "SamplePassword123!"
+  }'
+
+# Delete SCRAM credential for a user
+curl -s -i -X DELETE http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/scram/users/alice \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mechanism": "SCRAM-SHA-512"
+  }'
+```
+
+---
+
+### 9. Delegation Tokens
+
+```bash
+# List all delegation tokens
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/delegation-tokens
+
+# Create a new delegation token
+curl -s -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/delegation-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "maxLifeTimeMs": 86400000
+  }'
+
+# Renew a delegation token
+curl -s -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/delegation-tokens/{tokenId}/renew \
+  -H "Content-Type: application/json" \
+  -d '{
+    "hmacBase64": "your-token-hmac-base64"
+  }'
+
+# Expire a delegation token
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/delegation-tokens/{tokenId}/expire \
+  -H "Content-Type: application/json" \
+  -d '{
+    "hmacBase64": "your-token-hmac-base64",
+    "expiryTimePeriodMs": 0
+  }'
+```
+
+---
+
+### 10. Asynchronous Operations Tracking
+
+```bash
+# Submit a new asynchronous operation
+curl -s -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/operations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationType": "create-topic",
+    "dryRun": false,
+    "requestedBy": "admin-user",
+    "resourceName": "my-sample-topic",
+    "payload": {
+      "partitions": 3,
+      "replicationFactor": 1
+    }
+  }'
+
+# List operations with pagination
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/operations?page=0&size=10"
+
+# Get operation details by ID
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/operations/{operationId}
+
+# Get operation event lifecycle logs
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/operations/{operationId}/events
+
+# Request cancellation of a pending operation
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/operations/{operationId}/cancel
+
+# Retry a failed operation
+curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/operations/{operationId}/retry
+```
+
+---
+
+### 11. Metrics & Diagnostics
+
+```bash
+# Structural cluster metrics snapshot (Admin-derived)
+curl -s -X GET http://localhost:8080/api/v1/metrics/structural
+
+# Cluster-scoped structural metrics
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/metrics/structural
+
+# Cluster aggregated runtime metrics
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/metrics?window=1m"
+
+# Broker aggregated runtime metrics (e.g. broker id 101)
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/brokers/101/metrics?window=1m"
+
+# Topic aggregated runtime metrics across brokers
+curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic/metrics?window=1m"
+
+# Direct Broker JMX snapshot (Preferred metric source)
+curl -s -X GET http://localhost:8080/api/v1/metrics/broker-jmx
+
+# Broker runtime metric diagnostic inspection (admin-only in prod)
+curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/brokers/101/metrics/diagnostics
 ```

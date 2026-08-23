@@ -6,11 +6,10 @@ import com.opentext.security.analytics.messagehub.kafkamanager.operations.servic
 import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCredentialDeleteRequest;
 import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCredentialResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCredentialUpsertRequest;
-import org.apache.kafka.clients.admin.*;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.UUID;
+import org.apache.kafka.clients.admin.*;
+import org.springframework.stereotype.Service;
 
 /**
  * Service to manage SCRAM credentials for Kafka users.

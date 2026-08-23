@@ -4,9 +4,20 @@ logging:
 app:
   metrics:
     broker-jmx:
-      enabled: false
+      enabled: true
       poll-interval: 30s
+      targets:
+        - name: broker1
+          host: ${KAFKA_BROKER1_HOST:10.71.135.15}
+          port: ${KAFKA_BROKER1_JMX_PORT:19111}
+        - name: broker2
+          host: ${KAFKA_BROKER2_HOST:10.71.135.15}
+          port: ${KAFKA_BROKER2_JMX_PORT:19112}
+        - name: broker3
+          host: ${KAFKA_BROKER3_HOST:10.71.135.15}
+          port: ${KAFKA_BROKER3_JMX_PORT:19113}
     prometheus-scrape:
+      enabled: false
       diagnostics-enabled: true
   rate-limit:
     enabled: false

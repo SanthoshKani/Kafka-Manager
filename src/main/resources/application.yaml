@@ -87,7 +87,7 @@ app:
     default-operation-timeout: 30s
   metrics:
     broker-jmx:
-      enabled: false
+      enabled: true
       poll-interval: 30s
     admin-derived:
       enabled: true
