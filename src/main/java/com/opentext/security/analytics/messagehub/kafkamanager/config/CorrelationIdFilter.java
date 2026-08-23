@@ -42,6 +42,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         } finally {
             long duration = System.currentTimeMillis() - startTime;
             logRequestResponse(wrappedRequest, wrappedResponse, duration);
+            wrappedResponse.copyBodyToResponse();
             MDC.remove(MDC_KEY);
         }
     }

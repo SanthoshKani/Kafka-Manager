@@ -1,14 +1,14 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.config;
 
-import com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.BoundedInMemorySampleStore;
-import com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.RuntimeMetricSampleStore;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.prometheus.BrokerEndpointRegistry;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.prometheus.InMemoryBrokerEndpointRegistry;
-import com.opentext.security.analytics.messagehub.kafkamanager.metrics.prometheus.PrometheusTextParser;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.prometheus.MetricMapper;
+import com.opentext.security.analytics.messagehub.kafkamanager.metrics.prometheus.PrometheusTextParser;
+import com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.BoundedInMemorySampleStore;
+import com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.RuntimeMetricSampleStore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 
 /**
  * Auto-configuration to provide a default in-memory RuntimeMetricSampleStore when none is defined.
@@ -35,6 +35,3 @@ public class MetricsAutoConfiguration {
         return new PrometheusTextParser(mapper.mapKeys(), 64 * 1024);
     }
 }
-
-
-

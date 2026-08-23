@@ -66,8 +66,25 @@ logging:
     com.opentext.security.analytics.messagehub.kafkamanager: INFO
     io.github.resilience4j: DEBUG
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
 app:
   service-name: kafka-manager
+  admin:
+    bootstrap-servers: ${BOOTSTRAP_SERVERS_CONFIG:localhost:9092}
+    security-protocol: ${KAFKA_ADMIN_SECURITY_PROTOCOL:PLAINTEXT}
+    default-request-timeout: 5s
+    default-operation-timeout: 30s
   metrics:
     broker-jmx:
       enabled: false
@@ -77,6 +94,9 @@ app:
       poll-interval: 60s
       operation-timeout: 30s
       topic-exclusion-patterns: []
+    prometheus-scrape:
+      enabled: false
+      diagnostics-enabled: false
   rate-limit:
     enabled: true
     capacity: 300

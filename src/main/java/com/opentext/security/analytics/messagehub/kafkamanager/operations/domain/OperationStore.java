@@ -1,13 +1,12 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.operations.domain;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 /**
  * In-memory abstraction for storing operations.

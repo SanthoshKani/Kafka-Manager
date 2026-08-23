@@ -19,13 +19,18 @@ public class LocalSecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
                                 HttpMethod.GET,
-                                "/actuator/health",
-                                "/actuator/health/**",
-                                "/actuator/info",
+                                "/management/health",
+                                "/management/health/**",
+                                "/management/info",
                                 "/v3/api-docs/**",
-                                "/openapi.yaml")
+                                "/v3/api-docs.yaml",
+                                "/v3/api-docs",
+                                "/openapi.yaml",
+                                "/api-docs/**",
+                                "/api-docs",
+                                "/favicon.ico")
                         .permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html")
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/swagger-ui")
                         .permitAll()
                         .anyRequest()
                         .permitAll());

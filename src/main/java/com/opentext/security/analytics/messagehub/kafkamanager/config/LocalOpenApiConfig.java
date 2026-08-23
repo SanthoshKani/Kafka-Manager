@@ -18,5 +18,5 @@ import org.springframework.context.annotation.Profile;
                         description = "KRaft-native Kafka cluster manager",
                         contact = @Contact(name = "OpenText", url = "https://opentext.com"),
                         license = @License(name = "Apache 2.0", url = "https://www.apache.org/licenses/LICENSE-2.0")),
-        servers = {@Server(url = "/api/v1", description = "API v1")})
+        servers = {@Server(url = "/", description = "Default Server")})
 public class LocalOpenApiConfig {}

@@ -1,6 +1,7 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin;
 
 import com.opentext.security.analytics.messagehub.kafkamanager.common.ApiErrorCode;
+import com.opentext.security.analytics.messagehub.kafkamanager.common.ApiException;
 import com.opentext.security.analytics.messagehub.kafkamanager.common.KafkaAdminException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -77,6 +78,8 @@ public class KafkaAdminExecutionService {
                             "category",
                             exception.getKafkaCategory())
                     .increment();
+            throw exception;
+        } catch (ApiException exception) {
             throw exception;
         } catch (RuntimeException exception) {
             throw translate(clusterId, action, exception);
@@ -162,6 +165,9 @@ public class KafkaAdminExecutionService {
                 timeoutMs,
                 callback == null ? "null" : callback.getClass().getName(),
                 throwable.getMessage());
+        if (throwable instanceof ApiException apiException) {
+            throw apiException;
+        }
         throw translate(clusterId, action, throwable);
     }
 
@@ -195,6 +201,48 @@ public class KafkaAdminExecutionService {
                     ApiErrorCode.KAFKA_AUTHORIZATION_FAILURE,
                     "AUTHORIZATION_FAILURE",
                     "Kafka authorization failed");
+        }
+        if (throwable instanceof org.apache.kafka.common.errors.UnknownTopicOrPartitionException
+                || throwable instanceof org.apache.kafka.common.errors.UnknownTopicIdException
+                || throwable instanceof org.apache.kafka.common.errors.GroupIdNotFoundException) {
+            return new KafkaAdminException(
+                    HttpStatus.NOT_FOUND,
+                    ApiErrorCode.NOT_FOUND,
+                    "NOT_FOUND",
+                    throwable.getMessage() != null ? throwable.getMessage() : "Kafka resource not found");
+        }
+        if (throwable instanceof org.apache.kafka.common.errors.TopicExistsException) {
+            return new KafkaAdminException(
+                    HttpStatus.CONFLICT,
+                    ApiErrorCode.CONFLICT,
+                    "CONFLICT",
+                    throwable.getMessage() != null ? throwable.getMessage() : "Topic already exists");
+        }
+        if (throwable instanceof org.apache.kafka.common.errors.InvalidTopicException
+                || throwable instanceof org.apache.kafka.common.errors.InvalidPartitionsException
+                || throwable instanceof org.apache.kafka.common.errors.InvalidRequestException
+                || throwable instanceof org.apache.kafka.common.errors.InvalidConfigurationException
+                || throwable instanceof org.apache.kafka.common.errors.OffsetOutOfRangeException
+                || throwable instanceof org.apache.kafka.common.errors.PolicyViolationException) {
+            return new KafkaAdminException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCode.VALIDATION_ERROR,
+                    "INVALID_REQUEST",
+                    throwable.getMessage() != null ? throwable.getMessage() : "Invalid Kafka request");
+        }
+        if (throwable instanceof org.apache.kafka.common.errors.UnsupportedVersionException) {
+            return new KafkaAdminException(
+                    HttpStatus.NOT_IMPLEMENTED,
+                    ApiErrorCode.OPERATION_FAILED,
+                    "UNSUPPORTED_VERSION",
+                    throwable.getMessage() != null ? throwable.getMessage() : "Unsupported Kafka feature");
+        }
+        if (throwable instanceof org.apache.kafka.common.errors.SecurityDisabledException) {
+            return new KafkaAdminException(
+                    HttpStatus.BAD_REQUEST,
+                    ApiErrorCode.OPERATION_FAILED,
+                    "SECURITY_DISABLED",
+                    throwable.getMessage() != null ? throwable.getMessage() : "Kafka security feature disabled");
         }
         if (throwable instanceof org.apache.kafka.common.errors.TimeoutException
                 || throwable instanceof TimeoutException) {

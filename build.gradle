@@ -43,7 +43,7 @@ dependencies {
     implementation 'org.springframework.data:spring-data-commons'
     implementation 'org.apache.kafka:kafka-clients'
     implementation "io.micrometer:micrometer-registry-prometheus"
-    implementation "org.springdoc:springdoc-openapi-starter-webmvc-api:${springDocVersion}"
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springDocVersion}"
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
     implementation 'org.bouncycastle:bctls-fips:2.1.24'

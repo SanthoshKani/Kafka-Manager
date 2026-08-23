@@ -12,7 +12,11 @@ import org.springframework.validation.annotation.Validated;
 public record KafkaManagerProperties(
         @NotBlank String serviceName, Security security, Admin admin, Metrics metrics, RateLimit rateLimit) {
 
-    public record Security(BasicAuth basicAuth, OAuth2ResourceServer oauth2ResourceServer) {}
+    public record Security(BasicAuth basicAuth, OAuth2ResourceServer oauth2ResourceServer) {
+        public Security {
+            basicAuth = basicAuth == null ? new BasicAuth("admin", "admin") : basicAuth;
+        }
+    }
 
     public record BasicAuth(String username, String password) {}
 
@@ -23,7 +27,17 @@ public record KafkaManagerProperties(
             @NotBlank String securityProtocol,
             Ssl ssl,
             Duration defaultRequestTimeout,
-            Duration defaultOperationTimeout) {}
+            Duration defaultOperationTimeout) {
+        public Admin {
+            bootstrapServers =
+                    (bootstrapServers == null || bootstrapServers.isBlank()) ? "localhost:9092" : bootstrapServers;
+            securityProtocol =
+                    (securityProtocol == null || securityProtocol.isBlank()) ? "PLAINTEXT" : securityProtocol;
+            defaultRequestTimeout = defaultRequestTimeout == null ? Duration.ofSeconds(5) : defaultRequestTimeout;
+            defaultOperationTimeout =
+                    defaultOperationTimeout == null ? Duration.ofSeconds(30) : defaultOperationTimeout;
+        }
+    }
 
     public record Metrics(BrokerJmx brokerJmx, AdminDerived adminDerived) {
         public Metrics {
@@ -83,5 +97,11 @@ public record KafkaManagerProperties(
             boolean enabled,
             @Min(1) int capacity,
             Duration refillPeriod,
-            @NotBlank String keyHeader) {}
+            @NotBlank String keyHeader) {
+        public RateLimit {
+            capacity = capacity <= 0 ? 300 : capacity;
+            refillPeriod = refillPeriod == null ? Duration.ofMinutes(1) : refillPeriod;
+            keyHeader = (keyHeader == null || keyHeader.isBlank()) ? "X-Client-Id" : keyHeader;
+        }
+    }
 }

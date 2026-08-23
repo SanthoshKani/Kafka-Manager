@@ -6,10 +6,11 @@ import com.opentext.security.analytics.messagehub.kafkamanager.operations.servic
 import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCredentialDeleteRequest;
 import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCredentialResponse;
 import com.opentext.security.analytics.messagehub.kafkamanager.scram.api.ScramCredentialUpsertRequest;
-import java.util.List;
-import java.util.UUID;
 import org.apache.kafka.clients.admin.*;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Service to manage SCRAM credentials for Kafka users.
@@ -87,7 +88,7 @@ public class ScramService {
                                     admin.alterUserScramCredentials(List.of(new UserScramCredentialUpsertion(
                                                     userName,
                                                     new ScramCredentialInfo(
-                                                            ScramMechanism.valueOf(request.mechanism()),
+                                                            parseScramMechanism(request.mechanism()),
                                                             request.iterations()),
                                                     request.password())))
                                             .all());
@@ -120,9 +121,30 @@ public class ScramService {
                                     "delete-scram-credentials",
                                     properties.admin().defaultOperationTimeout(),
                                     admin.alterUserScramCredentials(List.of(new UserScramCredentialDeletion(
-                                                    userName, ScramMechanism.valueOf(request.mechanism()))))
+                                                    userName, parseScramMechanism(request.mechanism()))))
                                             .all());
                             return null;
                         }));
+    }
+
+    private ScramMechanism parseScramMechanism(String name) {
+        if (name == null || name.isBlank()) {
+            throw new com.opentext.security.analytics.messagehub.kafkamanager.common.ApiException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    com.opentext.security.analytics.messagehub.kafkamanager.common.ApiErrorCode.VALIDATION_ERROR,
+                    "SCRAM mechanism must not be blank");
+        }
+        try {
+            return ScramMechanism.fromMechanismName(name.replace('_', '-').toUpperCase(java.util.Locale.ROOT));
+        } catch (Exception e) {
+            try {
+                return ScramMechanism.valueOf(name.replace('-', '_').toUpperCase(java.util.Locale.ROOT));
+            } catch (Exception ex) {
+                throw new com.opentext.security.analytics.messagehub.kafkamanager.common.ApiException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        com.opentext.security.analytics.messagehub.kafkamanager.common.ApiErrorCode.VALIDATION_ERROR,
+                        "Invalid SCRAM mechanism: " + name);
+            }
+        }
     }
 }
