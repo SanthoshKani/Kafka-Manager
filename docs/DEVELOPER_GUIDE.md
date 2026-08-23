@@ -302,6 +302,30 @@ docker-compose up -d
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
+### Swagger UI / OpenAPI (local profile)
+
+When running the application with the `local` Spring profile, the OpenAPI/Swagger UI is enabled and accessible without authentication. The project uses `springdoc-openapi` and a small profile-scoped configuration (`LocalOpenApiConfig` / `LocalSecurityConfig`) to expose the docs for development and IDE use.
+
+How to run:
+
+PowerShell (example):
+
+```powershell
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+Access the UI and spec (default port 8080):
+
+- Swagger UI (interactive): http://localhost:8080/swagger-ui/index.html or http://localhost:8080/swagger-ui.html
+- OpenAPI JSON: http://localhost:8080/v3/api-docs
+- OpenAPI YAML: http://localhost:8080/openapi.yaml
+
+Notes:
+
+- The `local` profile's security configuration explicitly permits `GET` requests to `/v3/api-docs/**`, `/openapi.yaml`, and `/swagger-ui/**`, so you do not need to provide credentials when running with `--spring.profiles.active=local`.
+- The OpenAPI server base is configured as `/api/v1` in `LocalOpenApiConfig`, so example requests shown in the UI will target the `/api/v1` paths.
+- If you need the generated `openapi.yaml` artifact on disk, run: `./gradlew openapiGenerate`.
+
 ## Running Compose on a remote host (external compose)
 
 If you prefer to run the Kafka infrastructure on a remote server (for
@@ -366,6 +390,36 @@ Notes:
 ```bash
 ./gradlew build
 ```
+
+### Run from built JAR (Java -jar)
+
+After building the project you can run the Spring Boot fat JAR directly with the `java -jar` command. Replace the JAR name with the actual file produced under `build/libs/` (it usually follows the pattern `projectName-version.jar`).
+
+PowerShell (Windows):
+
+```powershell
+# Build the jar
+.\gradlew.bat bootJar
+
+# Run the jar with the local profile
+java -jar .\build\libs\kafka-manager-1.0.0.jar --spring.profiles.active=local
+```
+
+Bash (macOS / Linux):
+
+```bash
+# Build the jar
+./gradlew bootJar
+
+# Run the jar with the local profile
+java -jar build/libs/kafka-manager-1.0.0.jar --spring.profiles.active=local
+```
+
+Notes:
+
+- If the produced JAR filename differs, list the `build/libs` directory and use the correct filename. Example (PowerShell): `Get-ChildItem .\build\libs`.
+- You can also set the active profile via environment variable `SPRING_PROFILES_ACTIVE=local` (Bash) or `$env:SPRING_PROFILES_ACTIVE='local'` (PowerShell) before running the jar.
+
 
 ### Generate OpenAPI Spec
 ```bash

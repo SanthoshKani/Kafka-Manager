@@ -1,8 +1,7 @@
 package com.opentext.security.analytics.messagehub.kafkamanager;
 
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
-import java.security.Provider;
-import java.security.Security;
+import com.opentext.security.analytics.messagehub.kafkamanager.config.PrometheusScrapeProperties;
 import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.springframework.boot.SpringApplication;
@@ -10,9 +9,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.security.Provider;
+import java.security.Security;
+
 @SpringBootApplication
 @EnableScheduling
-@EnableConfigurationProperties({KafkaManagerProperties.class})
+@EnableConfigurationProperties({KafkaManagerProperties.class, PrometheusScrapeProperties.class})
 public class KafkaManagerApplication {
 
     public static void main(String[] args) {

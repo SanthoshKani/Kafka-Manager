@@ -19,7 +19,10 @@ app:
   rate-limit:
     enabled: false
   admin:
-    bootstrap-servers: ${BOOTSTRAP_SERVERS_CONFIG:localhost:19092,localhost:29092,localhost:39092}
+    # Set default bootstrap servers to the external cluster provided by the user.
+    # You can also override via BOOTSTRAP_SERVERS_CONFIG environment variable.
+    bootstrap-servers: ${BOOTSTRAP_SERVERS_CONFIG:10.71.135.15:19092,10.71.135.15:29092,10.71.135.15:39092}
+    # Adjust security-protocol to match your cluster: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL
     security-protocol: PLAINTEXT
     default-request-timeout: 5s
     default-operation-timeout: 30s
