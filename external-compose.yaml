@@ -1,46 +1,46 @@
-# External Docker Compose for running on a remote host (e.g. 10.71.135.15)
-# This file is adapted from compose.yaml but intended to be run on a server
-# that applications (IDE / local machine) will connect to remotely.
-# - Do NOT run `kafka-manager` inside this compose when you want to connect
-#   from your local IDE. Run the application locally and point it to the
-#   remote bootstrap servers.
-
-version: '3.8'
-
 services:
-  # Dedicated Controllers (KRaft quorum)
+  # ---------------------------------------------------------------------------
+  # KRaft controllers
+  # ---------------------------------------------------------------------------
   controller1:
     image: apache/kafka:4.2.0
     container_name: controller1
+    hostname: controller1
     ports:
-      - "19093:9093"   # controller API port (mapped to host)
-      - "19101:9101"   # JMX
+      - "19101:9101"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: controller
       KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: >-
+        1@controller1:9093,
+        2@controller2:9093,
+        3@controller3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: controller1
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller1-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093 || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/kafka/bin/kafka-metadata-quorum.sh
+          --bootstrap-controller localhost:9093
+          describe --status >/dev/null 2>&1 || exit 1
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 20
       start_period: 30s
-
+    restart: unless-stopped
   controller2:
     image: apache/kafka:4.2.0
     container_name: controller2
+    hostname: controller2
     ports:
-      - "29093:9093"
       - "19102:9101"
     environment:
       KAFKA_NODE_ID: 2
@@ -48,26 +48,33 @@ services:
       KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: >-
+        1@controller1:9093,
+        2@controller2:9093,
+        3@controller3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: controller2
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller2-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093 || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/kafka/bin/kafka-metadata-quorum.sh
+          --bootstrap-controller localhost:9093
+          describe --status >/dev/null 2>&1 || exit 1
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 20
       start_period: 30s
-
+    restart: unless-stopped
   controller3:
     image: apache/kafka:4.2.0
     container_name: controller3
+    hostname: controller3
     ports:
-      - "39093:9093"
       - "19103:9101"
     environment:
       KAFKA_NODE_ID: 3
@@ -75,59 +82,86 @@ services:
       KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: >-
+        1@controller1:9093,
+        2@controller2:9093,
+        3@controller3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: controller3
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller3-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093 || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/kafka/bin/kafka-metadata-quorum.sh
+          --bootstrap-controller localhost:9093
+          describe --status >/dev/null 2>&1 || exit 1
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 20
       start_period: 30s
+    restart: unless-stopped
 
-  # Brokers (data plane only)
-  # These brokers will advertise both the internal Docker network hostnames
-  # (broker1:9092, broker2:9092, broker3:9092) and an EXTERNAL listener
-  # using the server's public IP (replace 10.71.135.15 below with your host IP).
+  # ---------------------------------------------------------------------------
+  # Kafka brokers
+  # ---------------------------------------------------------------------------
 
   broker1:
     image: apache/kafka:4.2.0
     container_name: broker1
+    hostname: broker1
     ports:
-      - "19092:9092"   # host 19092 -> container 9092
+      # External Kafka listener
+      - "19092:9094"
+      # JMX
       - "19111:9101"
     environment:
       KAFKA_NODE_ID: 101
       KAFKA_PROCESS_ROLES: broker
-      # Bind two listener names to the same container port; EXTERNAL will be
-      # advertised using the server's host IP + mapped host port (19092)
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker1:9092,EXTERNAL://10.71.135.15:19092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
+      # Internal traffic uses port 9092.
+      # External traffic uses port 9094 inside the container.
+      KAFKA_LISTENERS: >-
+        INTERNAL://0.0.0.0:9092,
+        EXTERNAL://0.0.0.0:9094
+      # KAFKA_HOST_IP can be provided through the shell or a .env file.
+      KAFKA_ADVERTISED_LISTENERS: >-
+        INTERNAL://broker1:9092,
+        EXTERNAL://${KAFKA_HOST_IP:-10.71.135.15}:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        INTERNAL:PLAINTEXT,
+        EXTERNAL:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: >-
+        1@controller1:9093,
+        2@controller2:9093,
+        3@controller3:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: broker1
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker1-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/kafka/bin/kafka-broker-api-versions.sh
+          --bootstrap-server localhost:9092
+          >/dev/null 2>&1 || exit 1
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
     depends_on:
       controller1:
         condition: service_healthy
@@ -135,38 +169,57 @@ services:
         condition: service_healthy
       controller3:
         condition: service_healthy
-
+    restart: unless-stopped
   broker2:
     image: apache/kafka:4.2.0
     container_name: broker2
+    hostname: broker2
     ports:
-      - "29092:9092"
+      # External Kafka listener
+      - "29092:9094"
+      # JMX
       - "19112:9101"
     environment:
       KAFKA_NODE_ID: 102
       KAFKA_PROCESS_ROLES: broker
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker2:9092,EXTERNAL://10.71.135.15:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
+      KAFKA_LISTENERS: >-
+        INTERNAL://0.0.0.0:9092,
+        EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: >-
+        INTERNAL://broker2:9092,
+        EXTERNAL://${KAFKA_HOST_IP:-10.71.135.15}:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        INTERNAL:PLAINTEXT,
+        EXTERNAL:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: >-
+        1@controller1:9093,
+        2@controller2:9093,
+        3@controller3:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: broker2
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker2-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/kafka/bin/kafka-broker-api-versions.sh
+          --bootstrap-server localhost:9092
+          >/dev/null 2>&1 || exit 1
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
     depends_on:
       controller1:
         condition: service_healthy
@@ -174,38 +227,57 @@ services:
         condition: service_healthy
       controller3:
         condition: service_healthy
-
+    restart: unless-stopped
   broker3:
     image: apache/kafka:4.2.0
     container_name: broker3
+    hostname: broker3
     ports:
-      - "39092:9092"
+      # External Kafka listener
+      - "39092:9094"
+      # JMX
       - "19113:9101"
     environment:
       KAFKA_NODE_ID: 103
       KAFKA_PROCESS_ROLES: broker
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker3:9092,EXTERNAL://10.71.135.15:39092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
+      KAFKA_LISTENERS: >-
+        INTERNAL://0.0.0.0:9092,
+        EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: >-
+        INTERNAL://broker3:9092,
+        EXTERNAL://${KAFKA_HOST_IP:-10.71.135.15}:39092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        INTERNAL:PLAINTEXT,
+        EXTERNAL:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: >-
+        1@controller1:9093,
+        2@controller2:9093,
+        3@controller3:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: broker3
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker3-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/kafka/bin/kafka-broker-api-versions.sh
+          --bootstrap-server localhost:9092
+          >/dev/null 2>&1 || exit 1
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
     depends_on:
       controller1:
         condition: service_healthy
@@ -213,6 +285,11 @@ services:
         condition: service_healthy
       controller3:
         condition: service_healthy
+    restart: unless-stopped
+
+# -----------------------------------------------------------------------------
+# Persistent Docker volumes
+# -----------------------------------------------------------------------------
 
 volumes:
   controller1-data:
