@@ -4,16 +4,18 @@ import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManag
 import com.opentext.security.analytics.messagehub.kafkamanager.kafkaadmin.KafkaAdminExecutionService;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminClientMetricsSnapshot;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.CollectionStatus;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.regex.Pattern;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.admin.TopicListing;
 import org.apache.kafka.common.Node;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * One-shot AdminClient-backed collector for structural Kafka metrics.
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Service;
  * derivation to the pure calculator.
  */
 @Service
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 public class AdminDerivedMetricsCollector {
 
     private static final String ACTION = "collect-admin-derived-structural-metrics";

@@ -37,3 +37,4 @@ public class MetricsAutoConfiguration {
         return new PrometheusTextParser(mapper.mapKeys(), 64 * 1024);
     }
 }
+

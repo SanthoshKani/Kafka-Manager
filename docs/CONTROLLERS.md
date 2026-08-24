@@ -17,12 +17,7 @@ Notes:
 - ClusterAdminController (/api/v1/clusters/{clusterId}/actions)
 - OperationController (/api/v1/clusters/{clusterId}/operations)
 - ScramController (/api/v1/clusters/{clusterId}/scram/users)
-- BrokerJmxMetricsController (/api/v1/metrics/broker-jmx)
-- BrokerMetricsDiagnosticsController (/api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics)
-- ClusterStructuralMetricsController (/api/v1/clusters/{clusterId}/metrics/structural)
-- RuntimeMetricsController (base: /api/v1)
-- MetadataQuorumController (/api/v1/clusters/{clusterId}/metadata-quorum)
-- StructuralMetricsController (/api/v1/metrics/structural)
+ 
 
 ---
 
@@ -169,42 +164,7 @@ Notes:
     - Request DTO: ScramCredentialDeleteRequest
     - Response: 204 No Content
 
-### BrokerJmxMetricsController
-- Base path: /api/v1/metrics/broker-jmx
-- Annotations: @RestController, @RequestMapping, @Tag("Broker JMX Metrics"), @SecurityRequirement(name = "bearerAuth")
-- Endpoints:
-  - GET /api/v1/metrics/broker-jmx — Get latest broker JMX metrics
-    - Response DTO: BrokerJmxMetricsCollectorService.BrokerJmxSnapshot
-
-### BrokerMetricsDiagnosticsController
-- Base path: /api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics
-- Annotations: @RestController, @RequestMapping, @Tag("Metrics Diagnostics"), @SecurityRequirement(name = "bearerAuth")
-- Endpoints:
-  - GET /api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics — List recognized metric names and diagnostic statuses
-    - Response DTO: DiagnosticsResponse (record declared in controller)
-    - Notes: feature-gated by PrometheusScrapeProperties.diagnosticsEnabled(); requires admin role check inside controller (ROLE_ADMIN or ADMIN). Returns 403 if disabled or not admin.
-
-### ClusterStructuralMetricsController
-- Base path: /api/v1/clusters/{clusterId}/metrics/structural
-- Annotations: @RestController, @RequestMapping, @Tag("Structural Metrics"), @SecurityRequirement(name = "bearerAuth")
-- Endpoints:
-  - GET /api/v1/clusters/{clusterId}/metrics/structural — Get cached structural cluster metrics
-    - Response DTO: AdminClientMetricsSnapshot
-    - Notes: returns 404 if cluster unknown, 503 if metrics not yet available.
-
-### RuntimeMetricsController
-- Base path: /api/v1
-- Annotations: @RestController, @RequestMapping("/api/v1"), @Tag("Runtime Metrics"), @SecurityRequirement(name = "bearerAuth")
-- Endpoints (selected):
-  - GET /api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics — Get broker runtime metrics (aggregated)
-    - Response DTO: BrokerMetricsResponse (record declared in controller)
-    - Query: window (supported values: null or "1m")
-  - GET /api/v1/clusters/{clusterId}/topics/{topic}/metrics — Get topic aggregated metrics
-    - Response DTO: TopicMetricsResponse
-    - Query: window, perBroker
-  - GET /api/v1/clusters/{clusterId}/metrics — Get cluster aggregated metrics
-    - Response DTO: ClusterMetricsResponse
-
+-
 ### MetadataQuorumController
 - Base path: /api/v1/clusters/{clusterId}/metadata-quorum
 - Annotations: @RestController, @RequestMapping, @Tag("Metadata Quorum"), @SecurityRequirement(name = "bearerAuth")

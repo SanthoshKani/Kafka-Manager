@@ -9,11 +9,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Exposes the latest broker-side JMX metrics snapshot.
  */
 @RestController
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 @RequestMapping("/api/v1/metrics/broker-jmx")
 @Tag(name = "Broker JMX Metrics", description = "Broker-side JMX metrics collected from Kafka JVMs")
 @SecurityRequirement(name = "bearerAuth")

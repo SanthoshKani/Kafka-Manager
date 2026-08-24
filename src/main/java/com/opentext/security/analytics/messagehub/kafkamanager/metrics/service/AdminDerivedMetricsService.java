@@ -5,6 +5,15 @@ import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.Br
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.CollectionStatus;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.apache.kafka.clients.admin.TopicDescription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -14,13 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.kafka.clients.admin.TopicDescription;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
 
 /**
  * Computes and exposes Admin-derived Kafka structural metrics.
@@ -29,6 +31,7 @@ import org.springframework.stereotype.Service;
  * the latest snapshot to Micrometer gauges and the REST controller layer.
  */
 @Service
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 public class AdminDerivedMetricsService {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDerivedMetricsService.class);

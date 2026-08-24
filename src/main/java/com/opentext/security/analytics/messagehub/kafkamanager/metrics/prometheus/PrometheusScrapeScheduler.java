@@ -3,21 +3,24 @@ package com.opentext.security.analytics.messagehub.kafkamanager.metrics.promethe
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.*;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
 
 /**
  * Scheduled scraper that polls configured brokers and writes normalized samples to the provided store.
  */
 @Service
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 public class PrometheusScrapeScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(PrometheusScrapeScheduler.class);

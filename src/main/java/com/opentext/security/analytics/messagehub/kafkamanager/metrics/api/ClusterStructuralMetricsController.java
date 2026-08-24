@@ -14,11 +14,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Cluster-scoped structural metrics endpoint. Returns cached data only and never invokes AdminClient.
  */
 @RestController
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 @RequestMapping("/api/v1/metrics/structural")
 @Tag(name = "Structural Metrics", description = "Cluster-health metrics derived from Kafka AdminClient metadata")
 @SecurityRequirement(name = "bearerAuth")

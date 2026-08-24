@@ -171,9 +171,8 @@ GET    /clusters/{clusterId}/metadata-quorum                # Quorum status
 ```
 
 ### Client Metrics
-```
-GET    /clusters/{clusterId}/client-metrics                 # List client metrics resources
-```
+
+Note: Cluster Manager no longer exposes built-in runtime/client metrics endpoints for production use. We recommend using Prometheus with the JMX exporter or Jolokia for broker and client metrics. See `docs/PRODUCTION_MONITORING.md` for guidance and sample scrape configuration.
 
 ### ACLs
 ```

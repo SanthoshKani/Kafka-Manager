@@ -9,6 +9,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * publishes the latest values to Micrometer so they can be scraped by Prometheus.
  */
 @Service
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 public class BrokerJmxMetricsCollectorService {
 
     private static final Logger log = LoggerFactory.getLogger(BrokerJmxMetricsCollectorService.class);

@@ -202,23 +202,7 @@ app:
 
 ### Metrics
 
-This project includes a focused metrics subsystem under `src/main/java/.../metrics/`, split into collectors, runtime aggregators, and REST controllers.
-
-**Primary Metric Source: JMX Broker Collection (Preferred in Local & Production)**
-- **Broker JMX Collection (Preferred)**: `BrokerJmxMetricsCollectorService` connects directly to Kafka broker MBeans via JMX ports (`19111`, `19112`, `19113`). This provides real-time broker request rates, request latencies, queue metrics, topic throughput, and idle percentages without requiring an external Prometheus sidecar or exporter.
-  - **Local & Production Default**: Enabled by default (`app.metrics.broker-jmx.enabled=true`).
-  - Configure target broker JMX host/ports under `app.metrics.broker-jmx.targets`.
-  - Accessible via `GET /api/v1/metrics/broker-jmx`.
-- **Admin-Derived Metrics**: `AdminDerivedMetricsCollector` queries Kafka cluster metadata via the `AdminClient` (broker counts, leader distribution, partition counts, under-replicated partitions, controller ID) and maintains structured snapshots.
-  - Enabled by default (`app.metrics.admin-derived.enabled=true`, poll interval default: `60s`).
-  - Accessible via `GET /api/v1/metrics/structural` and `GET /api/v1/clusters/{clusterId}/metrics/structural`.
-- **Prometheus Scraping (Alternative / Secondary)**: `PrometheusScraper` pulls text-format Prometheus endpoints from brokers when configured.
-  - Disabled by default (`app.metrics.prometheus-scrape.enabled=false`) in favor of direct JMX collection.
-- **Actuator Endpoints**: Spring Boot Actuator exposes JVM and application metrics at `GET /management/prometheus`, `GET /management/health`, and `GET /management/info`.
-
-#### Troubleshooting Metrics
-- **JMX Metrics Unavailable**: Ensure host JMX ports (`19111`, `19112`, `19113`) are reachable from the application runtime and that `KAFKA_JMX_PORT` and `KAFKA_JMX_HOSTNAME` match the broker configuration.
-- **Admin-Derived Metrics Missing**: Verify connectivity to Kafka bootstrap servers and confirm the `AdminClient` circuit breaker status in Actuator health.
+The built-in metrics subsystem has been removed from this repository. Production monitoring should be performed using external tooling (for example: broker JMX exporters scraped by Prometheus, centralized exporters, or vendor-managed observability agents). See `docs/PRODUCTION_MONITORING.md` for recommended production monitoring practices and dashboards.
 
 ### Data Persistence
 
@@ -791,25 +775,4 @@ curl -s -i -X POST http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111
 
 ### 11. Metrics & Diagnostics
 
-```bash
-# Structural cluster metrics snapshot (Admin-derived)
-curl -s -X GET http://localhost:8080/api/v1/metrics/structural
-
-# Cluster-scoped structural metrics
-curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/metrics/structural
-
-# Cluster aggregated runtime metrics
-curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/metrics?window=1m"
-
-# Broker aggregated runtime metrics (e.g. broker id 101)
-curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/brokers/101/metrics?window=1m"
-
-# Topic aggregated runtime metrics across brokers
-curl -s -X GET "http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/topics/my-sample-topic/metrics?window=1m"
-
-# Direct Broker JMX snapshot (Preferred metric source)
-curl -s -X GET http://localhost:8080/api/v1/metrics/broker-jmx
-
-# Broker runtime metric diagnostic inspection (admin-only in prod)
-curl -s -X GET http://localhost:8080/api/v1/clusters/11111111-1111-1111-1111-111111111111/brokers/101/metrics/diagnostics
-```
+The application no longer exposes built-in metrics or diagnostic REST endpoints. For production metrics and diagnostics, follow the recommendations in `docs/PRODUCTION_MONITORING.md`: collect broker JMX metrics via a JMX exporter and scrape with Prometheus (or use a vendor-managed solution), compute derived rates in the metrics pipeline, and dashboard/alert from the central metrics store.

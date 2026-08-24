@@ -1,53 +1,21 @@
 package com.opentext.security.analytics.messagehub.kafkamanager.metrics.prometheus;
 
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.MetricSemanticType;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import org.springframework.stereotype.Component;
 
 /**
  * Maps source Prometheus metric names to canonical internal names and semantic types.
  */
 @Component
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 public final class MetricMapper {
 
     private final Map<String, Descriptor> map = new HashMap<>();
-
-    public enum SourceUnit {
-        RAW, // unit unknown or raw count
-        PERCENT, // source reports percentage 0..100
-        RATIO // source reports ratio 0..1
-    }
-
-    public static final class Descriptor {
-        public final String canonicalName;
-        public final MetricSemanticType semanticType;
-        public final String unit; // normalized unit name to expose, e.g. "count", "per_minute", "ratio"
-        public final SourceUnit sourceUnit;
-        public final java.util.Set<String> labelKeys;
-
-        public Descriptor(String canonicalName, MetricSemanticType semanticType) {
-            this(canonicalName, semanticType, "count", SourceUnit.RAW, java.util.Set.of());
-        }
-
-        public Descriptor(String canonicalName, MetricSemanticType semanticType, String unit, SourceUnit sourceUnit) {
-            this(canonicalName, semanticType, unit, sourceUnit, java.util.Set.of());
-        }
-
-        public Descriptor(
-                String canonicalName,
-                MetricSemanticType semanticType,
-                String unit,
-                SourceUnit sourceUnit,
-                java.util.Set<String> labelKeys) {
-            this.canonicalName = Objects.requireNonNull(canonicalName);
-            this.semanticType = Objects.requireNonNull(semanticType);
-            this.unit = Objects.requireNonNull(unit);
-            this.sourceUnit = Objects.requireNonNull(sourceUnit);
-            this.labelKeys = labelKeys == null ? java.util.Set.of() : java.util.Set.copyOf(labelKeys);
-        }
-    }
 
     public MetricMapper() {
         // default mappings for broker-topic counters (prometheus exporter _total style)
@@ -170,5 +138,40 @@ public final class MetricMapper {
         java.util.Map<String, String> out = new java.util.HashMap<>();
         for (var e : map.entrySet()) out.put(e.getKey(), e.getValue().canonicalName);
         return out;
+    }
+
+    public enum SourceUnit {
+        RAW, // unit unknown or raw count
+        PERCENT, // source reports percentage 0..100
+        RATIO // source reports ratio 0..1
+    }
+
+    public static final class Descriptor {
+        public final String canonicalName;
+        public final MetricSemanticType semanticType;
+        public final String unit; // normalized unit name to expose, e.g. "count", "per_minute", "ratio"
+        public final SourceUnit sourceUnit;
+        public final java.util.Set<String> labelKeys;
+
+        public Descriptor(String canonicalName, MetricSemanticType semanticType) {
+            this(canonicalName, semanticType, "count", SourceUnit.RAW, java.util.Set.of());
+        }
+
+        public Descriptor(String canonicalName, MetricSemanticType semanticType, String unit, SourceUnit sourceUnit) {
+            this(canonicalName, semanticType, unit, sourceUnit, java.util.Set.of());
+        }
+
+        public Descriptor(
+                String canonicalName,
+                MetricSemanticType semanticType,
+                String unit,
+                SourceUnit sourceUnit,
+                java.util.Set<String> labelKeys) {
+            this.canonicalName = Objects.requireNonNull(canonicalName);
+            this.semanticType = Objects.requireNonNull(semanticType);
+            this.unit = Objects.requireNonNull(unit);
+            this.sourceUnit = Objects.requireNonNull(sourceUnit);
+            this.labelKeys = labelKeys == null ? java.util.Set.of() : java.util.Set.copyOf(labelKeys);
+        }
     }
 }

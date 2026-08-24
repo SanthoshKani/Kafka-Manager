@@ -3,6 +3,10 @@ package com.opentext.security.analytics.messagehub.kafkamanager.metrics.service;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminClientMetricsSnapshot;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminDerivedMetricsStore;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.CollectionStatus;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -10,8 +14,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 
 /**
  * Simple concurrency-safe in-memory store keeping at most one current snapshot per cluster.
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Component;
  * last-attempt timestamp, collection status and sanitized failure reason.
  */
 @Component
+@ConditionalOnProperty(prefix = "app.features", name = "metrics.enabled", havingValue = "true", matchIfMissing = false)
 @Primary
 public class InMemoryAdminDerivedMetricsStore implements AdminDerivedMetricsStore {
 
