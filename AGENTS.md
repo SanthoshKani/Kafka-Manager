@@ -45,10 +45,11 @@ acls/                      # ACL management
 scram/                     # SCRAM credential management
 delegationtokens/          # Delegation token management
 metadataquorum/            # KRaft metadata quorum
-clientmetrics/             # Client metrics
-metrics/                   # Admin-derived metrics, JMX collectors, Prometheus scraping
-  api/                     # metrics REST controllers
-  service/                 # metrics collection services (JMX, runtime, structural)
+  clientmetrics/             # Client metrics
+  # The metrics/ subsystem (admin-derived metrics, JMX collectors, Prometheus scraping)
+  # has been removed from the repository; production monitoring should be performed
+  # by external collectors and Prometheus scraping. See docs/PRODUCTION_MONITORING.md
+  # for guidance.
 operations/                # Long-running async operations tracking
 ```
 
@@ -312,7 +313,7 @@ docker compose build --no-cache
 | `application.yaml` | Main configuration (all profiles) |
 | `application-local.yml` | Local development overrides |
 | `openapi.yaml` | Exported OpenAPI 3.0 contract |
-| `metrics/` | Admin-derived metrics collectors and Prometheus scraping |
+| `metrics/` | (removed) Admin-derived metrics collectors and Prometheus scraping — use external monitoring |
 
 ## Gotchas & Conventions
 

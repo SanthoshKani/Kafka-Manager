@@ -172,11 +172,5 @@ Notes:
   - GET /api/v1/clusters/{clusterId}/metadata-quorum — Metadata quorum status
     - Response DTO: MetadataQuorumResponse
 
-### StructuralMetricsController
-- Base path: /api/v1/metrics/structural
-- Annotations: @RestController, @RequestMapping, @Tag("Structural Metrics"), @SecurityRequirement(name = "bearerAuth")
-- Endpoints:
-  - GET /api/v1/metrics/structural — Get structural cluster metrics
-    - Response DTO: AdminClientMetricsSnapshot
 
 ---

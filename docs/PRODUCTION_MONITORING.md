@@ -53,7 +53,7 @@ services:
       KAFKA_OPTS: >-
         -javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar=9404:/opt/jmx_exporter/config.yml
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker1:9092,EXTERNAL://${KAFKA_HOST_IP:-10.71.135.15}:19092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker1:9092,EXTERNAL://${KAFKA_HOST_IP}:19092
 ```
 
 Notes:
