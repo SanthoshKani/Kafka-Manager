@@ -6,12 +6,6 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.KafkaAdmin
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import java.time.Duration;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.errors.AuthenticationException;
@@ -21,6 +15,13 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 /**
  * Wrapper around Kafka AdminClient interactions that provides resilience, timeouts, metrics and
@@ -238,11 +239,13 @@ public class KafkaAdminExecutionService {
                     throwable.getMessage() != null ? throwable.getMessage() : "Unsupported Kafka feature");
         }
         if (throwable instanceof org.apache.kafka.common.errors.SecurityDisabledException) {
+            String guidance = "Kafka broker authorizer is not configured. ACL operations require an authorizer.\n"
+                    + "Enable ACLs by setting the broker property authorizer.class.name.\n"
+                    + "For example, in docker-compose set the environment variable: KAFKA_AUTHORIZER_CLASS_NAME=kafka.security.authorizer.AclAuthorizer\n"
+                    + "Also configure super users as needed, e.g.: KAFKA_SUPER_USERS=User:ANONYMOUS;User:admin";
+            String message = throwable.getMessage() != null ? throwable.getMessage() + ". " + guidance : guidance;
             return new KafkaAdminException(
-                    HttpStatus.BAD_REQUEST,
-                    ApiErrorCode.OPERATION_FAILED,
-                    "SECURITY_DISABLED",
-                    throwable.getMessage() != null ? throwable.getMessage() : "Kafka security feature disabled");
+                    HttpStatus.BAD_REQUEST, ApiErrorCode.KAFKA_SECURITY_DISABLED, "SECURITY_DISABLED", message);
         }
         if (throwable instanceof org.apache.kafka.common.errors.TimeoutException
                 || throwable instanceof TimeoutException) {
