@@ -17,6 +17,11 @@ import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service that exposes broker-level information and configuration management.
+ *
+ * <p>Includes listing brokers, describing broker configs and applying incremental config mutations.
+ */
 @Service
 public class BrokerService {
 
@@ -33,6 +38,12 @@ public class BrokerService {
         this.properties = properties;
     }
 
+    /**
+     * List all brokers in the cluster with basic summary information.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @return list of {@link BrokerSummaryResponse}
+     */
     public List<BrokerSummaryResponse> list(UUID clusterId) {
         return adminExecutionService.execute(
                 clusterId, "list-brokers", properties.admin().defaultRequestTimeout(), handle -> {
@@ -53,6 +64,13 @@ public class BrokerService {
                 });
     }
 
+    /**
+     * Describe broker configuration entries as a map of name -> value.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param brokerId the broker id to describe
+     * @return ordered map of configuration entries for the broker
+     */
     public Map<String, String> describeConfigs(UUID clusterId, int brokerId) {
         return adminExecutionService.execute(
                 clusterId, "describe-broker-configs", properties.admin().defaultRequestTimeout(), handle -> {
@@ -73,6 +91,13 @@ public class BrokerService {
                 });
     }
 
+    /**
+     * Alter broker configuration using incremental alter-config operations.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param brokerId the broker id to update
+     * @param request the broker config mutation request
+     */
     public void alterConfigs(UUID clusterId, int brokerId, BrokerConfigMutationRequest request) {
         mutationRecorder.record(
                 clusterId,

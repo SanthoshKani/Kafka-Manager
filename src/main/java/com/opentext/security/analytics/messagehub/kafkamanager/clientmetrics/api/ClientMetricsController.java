@@ -2,7 +2,6 @@ package com.opentext.security.analytics.messagehub.kafkamanager.clientmetrics.ap
 
 import com.opentext.security.analytics.messagehub.kafkamanager.clientmetrics.service.ClientMetricsService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,22 +9,22 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/client-metrics")
+@RequestMapping("/api/v1/client-metrics")
 @Tag(name = "Client Metrics", description = "List client-metrics resources exposed by clients")
 @SecurityRequirement(name = "bearerAuth")
 public class ClientMetricsController {
 
     private final ClientMetricsService service;
+    private final java.util.UUID defaultClusterId;
 
-    public ClientMetricsController(ClientMetricsService service) {
+    public ClientMetricsController(ClientMetricsService service, java.util.UUID defaultClusterId) {
         this.service = service;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -42,8 +41,7 @@ public class ClientMetricsController {
                                 mediaType = "application/json",
                                 schema = @Schema(implementation = ClientMetricResourceResponse.class)))
     })
-    public List<ClientMetricResourceResponse> list(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId) {
-        return service.list(clusterId);
+    public List<ClientMetricResourceResponse> list() {
+        return service.list(defaultClusterId);
     }
 }

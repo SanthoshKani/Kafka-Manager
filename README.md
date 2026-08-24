@@ -7,7 +7,7 @@ KRaft-native Kafka cluster manager built with Spring Boot, Spring MVC, Spring Se
 - Java 25
 - Spring Boot 4.1.0
 - Spring Web MVC
--- In-memory cluster registry: the cluster registry loads cluster definitions from environment if provided
+- Single Kafka cluster configured through `BOOTSTRAP_SERVERS_CONFIG`
 - Kafka AdminClient
 - OAuth2 Resource Server / Basic Auth
 - Micrometer + Prometheus
@@ -17,10 +17,6 @@ KRaft-native Kafka cluster manager built with Spring Boot, Spring MVC, Spring Se
 - Resilience4j (circuit breaker)
 
 ## What it exposes
-
-### Cluster Registry
-- Register, update, enable, disable, validate, delete clusters
-- Capability report per cluster
 
 ### Kafka Admin Surfaces
 
@@ -65,7 +61,7 @@ KRaft-native Kafka cluster manager built with Spring Boot, Spring MVC, Spring Se
 ## Run Locally
 
 ```bash
-docker compose up --build
+$env:SPRING_PROFILES_ACTIVE = 'local'; docker compose up --build
 ```
 
 App: `http://localhost:8080`
@@ -76,25 +72,25 @@ OpenAPI: `http://localhost:8080/api-docs` (or `openapi.yaml` in repo root)
 
 ## Profiles
 
- - `default`: Application runtime. The cluster registry runs in-memory and loads cluster definitions from environment (see below).
- - `it`: Compose-backed integration profile for live Kafka validation
+  - `local`: Open HTTP profile for IDE and docker-compose development. Connects to Kafka over PLAINTEXT only and does not configure certs, keystores, or truststores.
+  - `prod`: Secure profile with Basic Auth / OAuth2 Resource Server, SSL or mTLS Kafka connectivity, and rate limiting enabled. This is the default fallback when no profile is set.
+  - `it`: Compose-backed integration profile for live Kafka validation
 
 ## Configuration
 
-Key environment variables (see `application.yaml` for full list):
+Key environment variables (see `application-local.yml` and `application-prod.yml` for full list):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KAFKA_MANAGER_CLUSTERS` | - | Optional JSON array of cluster definitions loaded at startup into the in-memory registry. Example: [{"displayName":"prod","bootstrapServers":"kafka:9092","securityProtocol":"PLAINTEXT","enabled":true}]
-| `KAFKA_MANAGER_CLUSTERS` | - | Optional JSON array of cluster definitions loaded at startup into the in-memory registry. Example: [{"displayName":"prod","bootstrapServers":"kafka:9092","securityProtocol":"PLAINTEXT","enabled":true}]
-| `KAFKA_MANAGER_MASTER_KEY_BASE64` | (dev default) | AES master key for encrypting cluster secrets |
-| `KAFKA_MANAGER_BASIC_AUTH_USERNAME` | `admin` | Basic Auth username |
-| `KAFKA_MANAGER_BASIC_AUTH_PASSWORD` | `admin` | Basic Auth password |
+| `SPRING_PROFILES_ACTIVE` | `local` | Selects the runtime profile (`local` or `prod`) |
+| `KAFKA_MANAGER_BASIC_AUTH_USERNAME` | `admin` | Production Basic Auth username |
+| `KAFKA_MANAGER_BASIC_AUTH_PASSWORD` | `admin` | Production Basic Auth password |
 | `KAFKA_MANAGER_OAUTH2_ISSUER_URI` | - | OIDC issuer for OAuth2 Resource Server |
 | `KAFKA_MANAGER_OAUTH2_JWK_SET_URI` | - | JWK set URI for OAuth2 Resource Server |
-| `KAFKA_MANAGER_ADMIN_CACHE_SIZE` | `64` | AdminClient cache size |
-| `KAFKA_MANAGER_DEFAULT_REQUEST_TIMEOUT` | `5s` | AdminClient request timeout |
-| `KAFKA_MANAGER_DEFAULT_OPERATION_TIMEOUT` | `30s` | AdminClient operation timeout |
+| `BOOTSTRAP_SERVERS_CONFIG` | `localhost:19092,localhost:29092,localhost:39092` (local) | Kafka bootstrap servers for the singleton AdminClient |
+| `KAFKA_ADMIN_SECURITY_PROTOCOL` | `PLAINTEXT` in local, `SSL` in prod | Kafka client protocol |
+| `javax.net.ssl.keyStore`, `javax.net.ssl.trustStore` | - | Production Kafka client keystore/truststore file paths |
+| `javax.net.ssl.keyStorePassword`, `javax.net.ssl.trustStorePassword` | - | Production Kafka client keystore/truststore passwords |
 
 ### Rate Limiting
 - Enabled by default (`app.rate-limit.enabled=true`)
@@ -111,19 +107,14 @@ Key environment variables (see `application.yaml` for full list):
 
 ## Security
 
-- **Basic Authentication**: HTTP Basic Auth for username/password authentication (configured via `KAFKA_MANAGER_BASIC_AUTH_USERNAME` and `KAFKA_MANAGER_BASIC_AUTH_PASSWORD`)
-- **OAuth2 Resource Server**: Validates JWT Bearer tokens via issuer-uri or JWK set URI (configured via `KAFKA_MANAGER_OAUTH2_ISSUER_URI` or `KAFKA_MANAGER_OAUTH2_JWK_SET_URI`)
-- **Cluster secrets encrypted**: Bootstrap servers, SASL credentials, TLS config encrypted at rest with AES-GCM (master key from `KAFKA_MANAGER_MASTER_KEY_BASE64`)
-- **Actuator endpoints**: Secured, read-only access for health/info/prometheus
-- **CORS**: Disabled by default; configure via `SecurityConfig` if needed
-- **Rate limiting**: Bucket4j token bucket (300 req/min per `X-Client-Id` header, falls back to remote address)
+- **Local profile**: No HTTP authentication, no rate limiting, no bearer security scheme in OpenAPI, and no Kafka SSL material.
+- **Production profile**: HTTP Basic Auth and OAuth2 Resource Server are enabled, actuator endpoints remain secured, and Kafka AdminClient SSL/mTLS settings are read from production profile properties or JVM SSL system properties.
+- **Rate limiting**: Bucket4j token bucket (300 req/min per `X-Client-Id` header, falls back to remote address) in production only.
 
 Supported Kafka client security:
 
-- AdminClient supports PLAINTEXT, SSL, SASL_PLAINTEXT and SASL_SSL connection modes.
-- SASL mechanisms supported: `SCRAM-SHA-256`, `SCRAM-SHA-512`, and `PLAIN` (configure via cluster registration fields).
-- TLS: provide truststore/keystore as a file path or as base64-encoded keystore bytes; temporary files are created securely when needed.
-- All security-sensitive values (passwords, keystore bytes) should be supplied via the secret fields and are stored encrypted.
+- Local profile uses PLAINTEXT only.
+- Production profile supports SSL and mTLS via JVM keystore/truststore settings.
 
 ## API Endpoints (v1)
 
@@ -131,13 +122,8 @@ Base path: `/api/v1`
 
 ### Clusters
 ```
-GET    /clusters                    # List clusters
-POST   /clusters                    # Register cluster
-GET    /clusters/{id}               # Get cluster detail
-PATCH  /clusters/{id}               # Update cluster
-DELETE /clusters/{id}               # Delete cluster
-POST   /clusters/{id}/validate      # Validate cluster connectivity
-GET    /clusters/{id}/capability    # Capability report
+The app no longer exposes cluster registry CRUD endpoints.
+Cluster-scoped endpoints still take a `clusterId` path variable for compatibility with existing resource routes.
 ```
 
 ### Topics
@@ -185,9 +171,8 @@ GET    /clusters/{clusterId}/metadata-quorum                # Quorum status
 ```
 
 ### Client Metrics
-```
-GET    /clusters/{clusterId}/client-metrics                 # List client metrics resources
-```
+
+Note: Cluster Manager no longer exposes built-in runtime/client metrics endpoints for production use. We recommend using Prometheus with the JMX exporter or Jolokia for broker and client metrics. See `docs/PRODUCTION_MONITORING.md` for guidance and sample scrape configuration.
 
 ### ACLs
 ```
@@ -227,20 +212,45 @@ POST   /operations/{id}/cancel                              # Cancel pending ope
 # Unit + slice tests
 ./gradlew test
 
-# Integration tests (requires Docker)
-./gradlew integrationTest
-
-# Full verification (includes integration tests + coverage)
+# Full verification
 ./gradlew check
 ```
 
 ## Notes
 
-- `AdminClient` instances are cached per cluster and invalidated on registry changes.
+- Set `BOOTSTRAP_SERVERS_CONFIG` before starting the app; the Kafka Manager now connects to one shared Kafka cluster through a singleton `AdminClient`.
 - Kafka admin calls are bounded, logged, translated to RFC 9457 problem details, and recorded as persisted operations for mutating flows.
-- The compose-backed integration suite validates the live REST-to-Kafka path for the supported cluster surfaces.
 - `openapi.yaml` is the exported contract snapshot for the REST API.
-- `openapi.yaml` is the exported contract snapshot for the REST API.
-- When running with the in-memory registry, no database or migrations are required for cluster registry functionality; all data is kept in-memory and cleared on restart.
 - HikariCP pool tuned for production (leak detection, validation, max lifetime).
 - Structured logging with correlation IDs via `CorrelationIdFilter`.
+
+## Broker JMX (Docker) — setup & security
+
+- When running brokers in Docker and exposing JMX over the host, set a stable host address that the broker will advertise for RMI (the collector must be able to reach this address). Example environment variables for each broker/container:
+
+```yaml
+KAFKA_HOST_IP: 10.71.135.15            # host IP reachable by kafka-manager
+KAFKA_JMX_PORT: 9101                   # container JMX port (fixed)
+KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}   # ensure the RMI stub advertises a reachable address
+KAFKA_JMX_OPTS: >-
+  -Dcom.sun.management.jmxremote=true
+  -Dcom.sun.management.jmxremote.authenticate=false   # local/dev only; enable auth in prod
+  -Dcom.sun.management.jmxremote.ssl=false            # local/dev only; enable SSL in prod
+  -Dcom.sun.management.jmxremote.port=9101
+  -Dcom.sun.management.jmxremote.rmi.port=9101
+  -Djava.rmi.server.hostname=${KAFKA_HOST_IP}
+```
+
+- Map a host port to the container JMX port (example in docker-compose: `19111:9101`). Configure `application-local.yml` to use the host IP and mapped port (for example `10.71.135.15:19111`) so the `BrokerJmxMetricsCollectorService` connects to the correct TCP endpoint.
+
+- Security caveats:
+  - The `-Dcom.sun.management.jmxremote.authenticate=false` and `-Dcom.sun.management.jmxremote.ssl=false` options are only acceptable for isolated development environments. Do NOT use these settings in production as they expose an unauthenticated RMI interface.
+  - For production, enable JMX authentication and TLS (or use a Prometheus JMX exporter or Jolokia inside the container to expose metrics over an authenticated/HTTP endpoint). A safer pattern is to run the Prometheus JMX exporter as a Java agent inside the broker and scrape over HTTP (single TCP port) rather than relying on RMI.
+  - Ensure firewall rules only allow trusted hosts to reach the JMX ports, and prefer network-level restrictions (VPC/subnet, host firewall) in addition to JMX authentication.
+
+- If you encounter "no metrics" or connection failures from the application, check:
+  1. The host:port is reachable from the kafka-manager host (telnet or curl is sufficient for a TCP check).
+  2. `java.rmi.server.hostname` inside the broker is set to the host address the collector uses to connect.
+  3. The container uses a fixed `com.sun.management.jmxremote.rmi.port` to avoid ephemeral ports.
+  4. Broker logs for JMX binding errors and kafka-manager logs for connector exceptions.
+

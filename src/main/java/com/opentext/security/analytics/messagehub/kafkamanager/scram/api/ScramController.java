@@ -11,20 +11,21 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/scram/users")
+@RequestMapping("/api/v1/scram/users")
 @Tag(name = "SCRAM", description = "Manage SCRAM credentials (users)")
 @SecurityRequirement(name = "bearerAuth")
 public class ScramController {
 
     private final ScramService service;
+    private final java.util.UUID defaultClusterId;
 
-    public ScramController(ScramService service) {
+    public ScramController(ScramService service, java.util.UUID defaultClusterId) {
         this.service = service;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -42,9 +43,8 @@ public class ScramController {
                                 schema = @Schema(implementation = ScramUsersResponse.class)))
     })
     public ScramUsersResponse describe(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "List of usernames to describe") @RequestParam List<String> userNames) {
-        return new ScramUsersResponse(service.describe(clusterId, userNames));
+        return new ScramUsersResponse(service.describe(defaultClusterId, userNames));
     }
 
     @PutMapping("/{userName}")
@@ -63,10 +63,9 @@ public class ScramController {
                                 schema = @Schema(implementation = ScramCredentialUpsertRequest.class)))
     })
     public ResponseEntity<Void> upsert(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "User name", required = true) @PathVariable String userName,
             @Valid @org.springframework.web.bind.annotation.RequestBody ScramCredentialUpsertRequest request) {
-        service.upsert(clusterId, userName, request);
+        service.upsert(defaultClusterId, userName, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -86,10 +85,9 @@ public class ScramController {
                                 schema = @Schema(implementation = ScramCredentialDeleteRequest.class)))
     })
     public ResponseEntity<Void> delete(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "User name", required = true) @PathVariable String userName,
             @Valid @org.springframework.web.bind.annotation.RequestBody ScramCredentialDeleteRequest request) {
-        service.delete(clusterId, userName, request);
+        service.delete(defaultClusterId, userName, request);
         return ResponseEntity.noContent().build();
     }
 }

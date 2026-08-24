@@ -10,13 +10,15 @@ import com.opentext.security.analytics.messagehub.kafkamanager.operations.servic
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.CreateDelegationTokenOptions;
-import org.apache.kafka.clients.admin.DescribeDelegationTokenResult;
-import org.apache.kafka.clients.admin.ExpireDelegationTokenOptions;
-import org.apache.kafka.clients.admin.RenewDelegationTokenOptions;
+import org.apache.kafka.clients.admin.*;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service managing Kafka delegation tokens: list, create, renew and expire operations.
+ *
+ * <p>Delegation tokens are created and managed via AdminClient calls. The service returns
+ * token identifiers and encodes/decodes HMACs where appropriate.
+ */
 @Service
 public class DelegationTokenService {
 
@@ -33,6 +35,12 @@ public class DelegationTokenService {
         this.properties = properties;
     }
 
+    /**
+     * List all delegation tokens known to the cluster.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @return list of {@link DelegationTokenResponse}
+     */
     public List<DelegationTokenResponse> list(UUID clusterId) {
         return adminExecutionService.execute(
                 clusterId, "list-delegation-tokens", properties.admin().defaultRequestTimeout(), handle -> {
@@ -54,6 +62,13 @@ public class DelegationTokenService {
                 });
     }
 
+    /**
+     * Create a new delegation token with the requested maximum lifetime.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param request creation request containing max lifetime
+     * @return {@link DelegationTokenResponse} representing the created token
+     */
     public DelegationTokenResponse create(UUID clusterId, DelegationTokenCreateRequest request) {
         return mutationRecorder.record(
                 clusterId,
@@ -79,6 +94,14 @@ public class DelegationTokenService {
                         }));
     }
 
+    /**
+     * Renew an existing delegation token using its HMAC (base64).
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param tokenId token id to renew
+     * @param request renewal request containing HMAC base64
+     * @return updated {@link DelegationTokenResponse} with new expiry
+     */
     public DelegationTokenResponse renew(UUID clusterId, String tokenId, DelegationTokenRenewRequest request) {
         return mutationRecorder.record(
                 clusterId,
@@ -101,6 +124,13 @@ public class DelegationTokenService {
                         }));
     }
 
+    /**
+     * Expire (revoke) a delegation token immediately or after a specified period.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @param tokenId token id to expire
+     * @param request expiration request containing HMAC base64 and expiry time period
+     */
     public void expire(UUID clusterId, String tokenId, DelegationTokenExpireRequest request) {
         mutationRecorder.record(
                 clusterId,

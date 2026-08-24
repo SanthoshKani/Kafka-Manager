@@ -1,22 +1,31 @@
-spring:
-  datasource:
-    url: ${KAFKA_MANAGER_LOCAL_JDBC_URL:jdbc:postgresql://localhost:5432/kafkamanager}
-    username: ${KAFKA_MANAGER_LOCAL_DB_USERNAME:kafkamanager}
-    password: ${KAFKA_MANAGER_LOCAL_DB_PASSWORD:kafkamanager}
-  jpa:
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
 logging:
   level:
     com.opentext.security.analytics.messagehub.kafkamanager: DEBUG
 app:
-  security:
-    master-key-base64: ${KAFKA_MANAGER_MASTER_KEY_BASE64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
-    basic-auth:
-      username: ${KAFKA_MANAGER_BASIC_AUTH_USERNAME:admin}
-      password: ${KAFKA_MANAGER_BASIC_AUTH_PASSWORD:admin}
-    oauth2-resource-server:
-      issuer-uri: ${KAFKA_MANAGER_OAUTH2_ISSUER_URI:}
-      jwk-set-uri: ${KAFKA_MANAGER_OAUTH2_JWK_SET_URI:}
+  metrics:
+    broker-jmx:
+      enabled: true
+      poll-interval: 30s
+      targets:
+        - name: broker1
+          host: ${KAFKA_BROKER1_HOST:10.71.135.15}
+          port: ${KAFKA_BROKER1_JMX_PORT:19111}
+        - name: broker2
+          host: ${KAFKA_BROKER2_HOST:10.71.135.15}
+          port: ${KAFKA_BROKER2_JMX_PORT:19112}
+        - name: broker3
+          host: ${KAFKA_BROKER3_HOST:10.71.135.15}
+          port: ${KAFKA_BROKER3_JMX_PORT:19113}
+    prometheus-scrape:
+      enabled: false
+      diagnostics-enabled: true
+  rate-limit:
+    enabled: false
+  admin:
+    # Set default bootstrap servers to the external cluster provided by the user.
+    # You can also override via BOOTSTRAP_SERVERS_CONFIG environment variable.
+    bootstrap-servers: ${BOOTSTRAP_SERVERS_CONFIG:10.71.135.15:19092,10.71.135.15:29092,10.71.135.15:39092}
+    # Adjust security-protocol to match your cluster: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL
+    security-protocol: PLAINTEXT
+    default-request-timeout: 5s
+    default-operation-timeout: 30s

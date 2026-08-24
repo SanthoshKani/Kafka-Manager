@@ -25,17 +25,14 @@
 # Local profile (uses application-local.yml)
 ./gradlew bootRun --args='--spring.profiles.active=local'
 
-# Default profile
+# Production/default profile
 ./gradlew bootRun
-
-# With custom config
-./gradlew bootRun --args='--app.security.masterKeyBase64=...'
 ```
 
 
 ### Docker
 ```bash
-# Start infrastructure (PostgreSQL + Kafka)
+# Start infrastructure (Kafka controllers + brokers)
 docker-compose up -d
 
 # Stop infrastructure
@@ -48,84 +45,23 @@ docker-compose logs -f kafka-manager
 docker-compose build --no-cache
 ```
 
+## Broker monitoring
+
+Runtime and broker metrics scraping are intentionally removed from the built-in Cluster Manager for production usage. See `docs/PRODUCTION_MONITORING.md` for recommended production monitoring patterns (Prometheus JMX exporter, Jolokia), sample exporter config, and sample `prometheus.yml` scrape jobs.
+
 ## API Endpoints Quick Reference
 
-### Clusters
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters` | List all clusters |
-| POST | `/api/v1/clusters` | Register new cluster |
-| GET | `/api/v1/clusters/{id}` | Get cluster details |
-| PUT | `/api/v1/clusters/{id}` | Update cluster |
-| DELETE | `/api/v1/clusters/{id}` | Delete cluster |
-| GET | `/api/v1/clusters/{id}/validate` | Validate cluster connection |
+## Adding a New Domain Feature
 
-### Cluster Admin
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/clusters/{id}/reassign-partitions` | Reassign partitions |
-| POST | `/api/v1/clusters/{id}/elect-leaders` | Elect preferred leaders |
-| GET | `/api/v1/clusters/{id}/log-dirs` | Describe log dirs |
+This project uses in-memory stores by default. When adding new domain features, follow these steps:
 
-### Topics
-| Method | Endpoint | Description |
+1. Create request/response DTOs in the appropriate `api/` package (use `record` types).
+2. Create controller in the `api/` package (`@RestController`, `@RequestMapping("/api/v1/...")`).
+3. Create service in the `service/` package (`@Service`, `@RequiredArgsConstructor`).
+4. Use the AdminClient bean from `KafkaAdminClientConfiguration` (and `KafkaAdminExecutionService` wrapper) for Kafka operations.
+5. If you add persistence later, implement repository/store abstractions and document migration steps in the project docs; by default, prefer in-memory stores for development.
 |--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/topics` | List topics |
-| POST | `/api/v1/clusters/{id}/topics` | Create topic |
-| GET | `/api/v1/clusters/{id}/topics/{name}` | Get topic details |
-| DELETE | `/api/v1/clusters/{id}/topics/{name}` | Delete topic |
-| POST | `/api/v1/clusters/{id}/topics/{name}/partitions` | Expand partitions |
-| POST | `/api/v1/clusters/{id}/topics/config-mutations` | Mutate configs |
-| GET | `/api/v1/clusters/{id}/topics/{name}/offsets` | Get offsets |
-
-### Brokers
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/brokers` | List brokers |
-| GET | `/api/v1/clusters/{id}/brokers/{brokerId}` | Get broker details |
-| POST | `/api/v1/clusters/{id}/brokers/config-mutations` | Mutate broker configs |
-
-### Consumer Groups
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/consumer-groups` | List consumer groups |
-| GET | `/api/v1/clusters/{id}/consumer-groups/{groupId}` | Get group details |
-| DELETE | `/api/v1/clusters/{id}/consumer-groups/{groupId}` | Delete group |
-| POST | `/api/v1/clusters/{id}/consumer-groups/{groupId}/offsets` | Update offsets |
-| POST | `/api/v1/clusters/{id}/consumer-groups/{groupId}/members/remove` | Remove member |
-
-### ACLs
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/acls` | List ACLs |
-| POST | `/api/v1/clusters/{id}/acls` | Create ACL |
-| DELETE | `/api/v1/clusters/{id}/acls` | Delete ACL |
-
-### SCRAM
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/scram` | List SCRAM credentials |
-| POST | `/api/v1/clusters/{id}/scram` | Create SCRAM credential |
-| DELETE | `/api/v1/clusters/{id}/scram/{username}` | Delete SCRAM credential |
-
-### Delegation Tokens
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/delegation-tokens` | List tokens |
-| POST | `/api/v1/clusters/{id}/delegation-tokens` | Create token |
-| POST | `/api/v1/clusters/{id}/delegation-tokens/renew` | Renew token |
-| POST | `/api/v1/clusters/{id}/delegation-tokens/expire` | Expire token |
-
-### Metadata Quorum (KRaft)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/metadata-quorum` | Get quorum status |
-| GET | `/api/v1/clusters/{id}/metadata-quorum/voters` | List voters |
-
-### Client Metrics
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/clusters/{id}/client-metrics` | Get client metrics |
+| See `docs/PRODUCTION_MONITORING.md` for production monitoring recommendations and sample scrape configs |
 
 ### Operations
 | Method | Endpoint | Description |
@@ -139,7 +75,15 @@ docker-compose build --no-cache
 ```yaml
 app:
   security:
-    masterKeyBase64: "<32-byte base64 key>"  # REQUIRED for secret encryption
+    basicAuth:
+      username: "admin"
+      password: "admin"
+    oauth2ResourceServer:
+      issuerUri: "https://auth.example.com"
+      jwkSetUri: "https://auth.example.com/.well-known/jwks.json"
+  admin:
+    bootstrapServers: "localhost:19092,localhost:29092,localhost:39092"
+    securityProtocol: "PLAINTEXT"
 ```
 
 ### Optional (with defaults)
@@ -181,23 +125,23 @@ app:
 }
 ```
 
-### With SASL/SSL
+### With TLS/mTLS
 ```json
 {
   "name": "secure-cluster",
   "bootstrapServers": "kafka1:9093,kafka2:9093,kafka3:9093",
-  "securityProtocol": "SASL_SSL",
-  "saslMechanism": "SCRAM-SHA-512",
-  "saslJaasConfig": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"admin\" password=\"secret\";",
-  "sslTruststoreLocation": "/path/to/truststore.jks",
-  "sslTruststorePasswordSecretId": "truststore-password-secret-id",
-  "sslKeystoreLocation": "/path/to/keystore.jks",
-  "sslKeystorePasswordSecretId": "keystore-password-secret-id",
-  "sslKeyPasswordSecretId": "key-password-secret-id",
-  "sslEndpointIdentificationAlgorithm": "https",
-  "sslEnabledProtocols": "TLSv1.2,TLSv1.3",
-  "sslTruststoreType": "JKS",
-  "sslKeystoreType": "JKS"
+  "securityProtocol": "SSL",
+  "ssl": {
+    "trustStore": "/path/to/truststore.bcfks",
+    "trustStorePassword": "secret",
+    "keyStore": "/path/to/keystore.bcfks",
+    "keyStorePassword": "secret",
+    "keyPassword": "secret",
+    "trustStoreType": "BCFKS",
+    "keyStoreType": "BCFKS",
+    "endpointIdentificationAlgorithm": "https",
+    "enabledProtocols": "TLSv1.2,TLSv1.3"
+  }
 }
 ```
 
@@ -266,15 +210,9 @@ public class NewController {
 }
 ```
 
-### 6. Add Flyway Migration (if schema changes)
-```sql
--- src/main/resources/db/migration/V2__new_domain.sql
-CREATE TABLE new_entity (
-    id BIGSERIAL PRIMARY KEY,
-    field1 VARCHAR(255) NOT NULL,
-    field2 VARCHAR(255)
-);
-```
+### 6. Persistence (not required)
+
+This project uses in-memory stores by default; persistent schema migrations are not required for normal development. If you add persistent storage later, document schema and migration steps at that time.
 
 ## Debugging Tips
 
@@ -309,13 +247,12 @@ curl -X GET "http://localhost:8080/api/v1/clusters/1/validate" \
 
 | Issue | Solution |
 |-------|----------|
-| `masterKeyBase64` not configured | Generate 32-byte key: `openssl rand -base64 32` |
 | AdminClient connection timeout | Check `bootstrapServers`, network, firewall |
 | SSL handshake failure | Verify truststore/keystore paths, passwords |
-| SASL authentication failure | Check JAAS config, username/password |
+| Kafka auth failure | Check security protocol and TLS/keystore/truststore configuration |
 | Rate limit exceeded | Increase `capacity` or `refillPeriod` |
 | Circuit breaker open | Check Kafka broker health, increase timeout |
-| Flyway migration failed | Check SQL syntax, run `flywayClean` first |
+| Flyway migration failed | Not applicable - project does not use Flyway by default |
 
 ## Useful Actuator Endpoints
 
@@ -357,7 +294,6 @@ Key dependencies in `build.gradle`:
 - `spring-boot-starter-security`
 - `spring-boot-starter-validation`
 - `spring-boot-starter-actuator`
-- (no Postgres/Flyway required)
 - `caffeine` (caching)
 - `bucket4j` (rate limiting)
 - `resilience4j` (circuit breaker)

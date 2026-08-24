@@ -11,20 +11,21 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/delegation-tokens")
+@RequestMapping("/api/v1/delegation-tokens")
 @Tag(name = "Delegation Tokens", description = "Manage delegation tokens: list, create, renew, expire")
 @SecurityRequirement(name = "bearerAuth")
 public class DelegationTokenController {
 
     private final DelegationTokenService service;
+    private final java.util.UUID defaultClusterId;
 
-    public DelegationTokenController(DelegationTokenService service) {
+    public DelegationTokenController(DelegationTokenService service, java.util.UUID defaultClusterId) {
         this.service = service;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -41,9 +42,8 @@ public class DelegationTokenController {
                                 mediaType = "application/json",
                                 schema = @Schema(implementation = DelegationTokenResponse.class)))
     })
-    public List<DelegationTokenResponse> list(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId) {
-        return service.list(clusterId);
+    public List<DelegationTokenResponse> list() {
+        return service.list(defaultClusterId);
     }
 
     @PostMapping
@@ -62,9 +62,8 @@ public class DelegationTokenController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public DelegationTokenResponse create(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Valid @org.springframework.web.bind.annotation.RequestBody DelegationTokenCreateRequest request) {
-        return service.create(clusterId, request);
+        return service.create(defaultClusterId, request);
     }
 
     @PostMapping("/{tokenId}/renew")
@@ -83,10 +82,9 @@ public class DelegationTokenController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public DelegationTokenResponse renew(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Token id", required = true) @PathVariable String tokenId,
             @Valid @org.springframework.web.bind.annotation.RequestBody DelegationTokenRenewRequest request) {
-        return service.renew(clusterId, tokenId, request);
+        return service.renew(defaultClusterId, tokenId, request);
     }
 
     @PostMapping("/{tokenId}/expire")
@@ -99,10 +97,9 @@ public class DelegationTokenController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<Void> expire(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Token id", required = true) @PathVariable String tokenId,
             @Valid @org.springframework.web.bind.annotation.RequestBody DelegationTokenExpireRequest request) {
-        service.expire(clusterId, tokenId, request);
+        service.expire(defaultClusterId, tokenId, request);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,6 +1,7 @@
 package com.opentext.security.analytics.messagehub.kafkamanager;
 
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
+import com.opentext.security.analytics.messagehub.kafkamanager.config.PrometheusScrapeProperties;
 import java.security.Provider;
 import java.security.Security;
 import org.bouncycastle.crypto.CryptoServicesRegistrar;
@@ -12,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-@EnableConfigurationProperties({KafkaManagerProperties.class})
+@EnableConfigurationProperties({KafkaManagerProperties.class, PrometheusScrapeProperties.class})
 public class KafkaManagerApplication {
 
     public static void main(String[] args) {

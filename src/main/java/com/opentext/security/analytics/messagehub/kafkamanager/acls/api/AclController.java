@@ -11,20 +11,21 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/acls")
+@RequestMapping("/api/v1/acls")
 @Tag(name = "ACLs", description = "Manage ACLs: list, create, delete")
 @SecurityRequirement(name = "bearerAuth")
 public class AclController {
 
     private final AclService service;
+    private final java.util.UUID defaultClusterId;
 
-    public AclController(AclService service) {
+    public AclController(AclService service, java.util.UUID defaultClusterId) {
         this.service = service;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -40,7 +41,6 @@ public class AclController {
                         @Content(mediaType = "application/json", schema = @Schema(implementation = AclResponse.class)))
     })
     public List<AclResponse> list(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Resource type filter") @RequestParam(required = false) String resourceType,
             @Parameter(description = "Resource name filter") @RequestParam(required = false) String resourceName,
             @Parameter(description = "Pattern type filter") @RequestParam(required = false) String patternType,
@@ -49,7 +49,7 @@ public class AclController {
             @Parameter(description = "Operation filter") @RequestParam(required = false) String operation,
             @Parameter(description = "Permission type filter") @RequestParam(required = false) String permissionType) {
         return service.list(
-                clusterId,
+                defaultClusterId,
                 new AclFilterRequest(
                         resourceType, resourceName, patternType, principal, host, operation, permissionType));
     }
@@ -70,9 +70,8 @@ public class AclController {
                                 schema = @Schema(implementation = AclCreateRequest.class)))
     })
     public ResponseEntity<Void> create(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Valid @org.springframework.web.bind.annotation.RequestBody AclCreateRequest request) {
-        service.create(clusterId, request);
+        service.create(defaultClusterId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -92,9 +91,8 @@ public class AclController {
                                 schema = @Schema(implementation = AclDeleteRequest.class)))
     })
     public ResponseEntity<Void> delete(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Valid @org.springframework.web.bind.annotation.RequestBody AclDeleteRequest request) {
-        service.delete(clusterId, request);
+        service.delete(defaultClusterId, request);
         return ResponseEntity.noContent().build();
     }
 }

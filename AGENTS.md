@@ -30,11 +30,11 @@ common/                    # Shared utilities & exceptions
 
 clusterregistry/           # Cluster registration & management
   api/                     # REST controllers & DTOs
-  domain/                  # JPA entities (ClusterEntity, SecretEntity) & repositories
-  service/                 # Business logic (ClusterRegistryService, SecretCipherService, SecretStoreService)
+  domain/                  # Cluster model (in-memory representations) & stores
+  service/                 # Business logic (ClusterRegistryService and helpers)
 
 kafkaadmin/                # Kafka AdminClient abstraction
-  AdminClientRegistry.java # Caffeine cache + AdminClient builder (fingerprint invalidation)
+  KafkaAdminClientConfiguration.java # Spring bean that builds/configures AdminClient handles
   KafkaAdminExecutionService.java # Resilience4j circuit breaker wrapper
   KafkaClientPropertyPolicyService.java # Property validation
 
@@ -45,15 +45,19 @@ acls/                      # ACL management
 scram/                     # SCRAM credential management
 delegationtokens/          # Delegation token management
 metadataquorum/            # KRaft metadata quorum
-clientmetrics/             # Client metrics
+  clientmetrics/             # Client metrics
+  # The metrics/ subsystem (admin-derived metrics, JMX collectors, Prometheus scraping)
+  # has been removed from the repository; production monitoring should be performed
+  # by external collectors and Prometheus scraping. See docs/PRODUCTION_MONITORING.md
+  # for guidance.
 operations/                # Long-running async operations tracking
 ```
 
 ### Key Design Patterns
 
-1. **AdminClient Caching with Fingerprint Invalidation** - `AdminClientRegistry` uses Caffeine cache keyed by clusterId + fingerprint hash of connection properties. Config changes auto-invalidate cache.
+1. **AdminClient provisioning** - This repository exposes AdminClient handles via a Spring configuration bean (`KafkaAdminClientConfiguration`) and a Resilience4j-wrapped execution service (`KafkaAdminExecutionService`). Do not create AdminClient instances directly; use the configured bean/wrapper. Note: the Caffeine-backed `AdminClientRegistry` pattern referenced elsewhere is not present in this codebase.
 
-2. **Secret Encryption** - All sensitive data (passwords, keystore passwords) encrypted with AES-256-GCM via `SecretCipherService`. Master key from `app.security.master-key-base64`.
+2. **Secret handling** - The codebase does not include a `SecretCipherService`/`SecretStoreService` implementation; sensitive values are currently provided via application properties or injected in cluster registration flow. Inspect `clusterregistry/service` implementations, `KafkaAdminClientConfiguration`, and `SecurityConfig.java` before changing secret storage or encryption behavior. If you add encryption, follow AES-256-GCM conventions and add explicit key management.
 
 3. **Circuit Breaker** - `KafkaAdminExecutionService` wraps AdminClient calls with Resilience4j (sliding window: 10, failure threshold: 50%, wait: 30s).
 
@@ -69,11 +73,9 @@ operations/                # Long-running async operations tracking
 # Full build (compile, test, integrationTest)
 ./gradlew build
 
-# Unit tests only (H2 in-memory DB)
+# Unit tests only (in-memory stores)
 ./gradlew test
 
-# Integration tests only (requires Docker Compose - PostgreSQL + Kafka KRaft cluster)
-./gradlew integrationTest
 
 # Clean build
 ./gradlew clean build
@@ -231,7 +233,7 @@ app:
 1. Create request/response DTOs in appropriate `api/` package (use `record` types)
 2. Create controller in `api/` package (`@RestController`, `@RequestMapping("/api/v1/...")`)
 3. Create service in `service/` package (`@Service`, `@RequiredArgsConstructor`)
-4. Use `AdminClientRegistry` for Kafka operations
+4. Use the AdminClient bean provided by `KafkaAdminClientConfiguration` (and `KafkaAdminExecutionService` wrapper) for Kafka operations
 5. Add OpenAPI annotations (`@Operation`, `@ApiResponse`, `@Parameter`)
 
 ### New Cluster Configuration Field
@@ -239,22 +241,22 @@ app:
 2. Add to `RegisterClusterRequest` / `UpdateClusterRequest` (api)
 3. Add to `ClusterDetailResponse` (api)
 4. Update `ClusterRegistryService.apply()` methods
-5. Update `AdminClientRegistry.buildHandle()` to configure the property
+5. Update `KafkaAdminClientConfiguration` to configure the property
 6. Add to `KafkaClientPropertyPolicyService.ALLOWED_KEYS` if it's a client property
-7. If you add persistent storage you will need to create appropriate migrations; the project currently uses in-memory stores by default.
+7. The project uses in-memory stores by default; if you add persistent storage later, document migrations and update config.
 
 ## Testing Patterns
 
 ### Unit Tests (src/test/)
 - Use `@ExtendWith(MockitoExtension.class)`
 - Mock services with `@Mock`, inject into controller via `MockMvcBuilders.standaloneSetup()`
-- Test profile: `test` (H2 in-memory, Flyway disabled)
+- Test profile: `test` (in-memory stores)
 - Run: `./gradlew test`
 
 ### Integration Tests (src/integrationTest/)
 - `@SpringBootTest` + `@ActiveProfiles("it")`
-- Uses Testcontainers for PostgreSQL + Kafka
-- Requires Docker Compose running
+- Uses Testcontainers and/or Docker Compose for Kafka
+- Requires Docker Compose running when using compose-backed fixtures
 - Run: `./gradlew integrationTest`
 
 ### Test Utilities
@@ -311,6 +313,7 @@ docker compose build --no-cache
 | `application.yaml` | Main configuration (all profiles) |
 | `application-local.yml` | Local development overrides |
 | `openapi.yaml` | Exported OpenAPI 3.0 contract |
+| `metrics/` | (removed) Admin-derived metrics collectors and Prometheus scraping — use external monitoring |
 
 ## Gotchas & Conventions
 
@@ -321,10 +324,10 @@ docker compose build --no-cache
 - **No wildcard imports** - Enforced by Spotless
 - **RFC 9457 errors** - All exceptions map to `application/problem+json`
 - **Correlation IDs** - Every request gets `X-Correlation-Id` (MDC + response header)
-- **AdminClient caching** - Never create AdminClient directly; always use `AdminClientRegistry.getAdminClient(clusterId)`
-- **Secret handling** - Never log decrypted secrets; `SecretCipherService` handles encryption/decryption
+- **AdminClient provisioning** - Do not instantiate AdminClient directly; use the bean configured in `KafkaAdminClientConfiguration` and the `KafkaAdminExecutionService` wrapper for execution and circuit breaking.
+- **Secret handling** - The codebase does not include `SecretCipherService`/`SecretStoreService`; secrets are currently read from properties or injected during cluster registration. Never log secrets; if you introduce encryption, add a well-documented cipher service and update `application.yaml` references.
 - **Circuit breaker** - Kafka admin calls wrapped in `KafkaAdminExecutionService.execute()`
 - **Async operations** - Mutating operations return `OperationResponse` with ID; poll `/operations/{id}/events` for status
--- **Data persistence** - In-memory stores are used by default; no Flyway or DB required for development/testing
+- **Data persistence** - In-memory stores are used by default; no Flyway required for development/testing
 - **Rate limit key** - Default `X-Client-Id` header; falls back to remote address
 - **OAuth2 Resource Server** - Validates JWT Bearer tokens via JWK set URI or issuer URI

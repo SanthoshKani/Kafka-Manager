@@ -1,6 +1,8 @@
 spring:
   application:
     name: Kafka-Manager
+  profiles:
+    default: prod
   devtools:
     restart:
       enabled: false
@@ -64,29 +66,39 @@ logging:
     com.opentext.security.analytics.messagehub.kafkamanager: INFO
     io.github.resilience4j: DEBUG
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
 app:
   service-name: kafka-manager
+  admin:
+    bootstrap-servers: ${BOOTSTRAP_SERVERS_CONFIG:localhost:9092}
+    security-protocol: ${KAFKA_ADMIN_SECURITY_PROTOCOL:PLAINTEXT}
+    default-request-timeout: 5s
+    default-operation-timeout: 30s
+  metrics:
+    broker-jmx:
+      enabled: true
+      poll-interval: 30s
+    admin-derived:
+      enabled: true
+      poll-interval: 60s
+      operation-timeout: 30s
+      topic-exclusion-patterns: []
+    prometheus-scrape:
+      enabled: false
+      diagnostics-enabled: false
   rate-limit:
     enabled: true
     capacity: 300
     refill-period: 1m
     key-header: X-Client-Id
-  security:
-    master-key-base64: ${KAFKA_MANAGER_MASTER_KEY_BASE64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
-    basic-auth:
-      username: ${KAFKA_MANAGER_BASIC_AUTH_USERNAME:admin}
-      password: ${KAFKA_MANAGER_BASIC_AUTH_PASSWORD:admin}
-    oauth2-resource-server:
-      issuer-uri: ${KAFKA_MANAGER_OAUTH2_ISSUER_URI:}
-      jwk-set-uri: ${KAFKA_MANAGER_OAUTH2_JWK_SET_URI:}
-  admin:
-    cache-size: ${KAFKA_MANAGER_ADMIN_CACHE_SIZE:64}
-    default-request-timeout: 5s
-    default-operation-timeout: 30s
-    connection-validation-timeout: 5s
-  operations:
-    poll-interval: 15s
-    lease-duration: 60s
-  cluster-registry:
-    max-page-size: 100
-    max-client-properties: 32

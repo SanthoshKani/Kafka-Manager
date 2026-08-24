@@ -11,12 +11,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/actions")
+@RequestMapping("/api/v1/actions")
 @Tag(
         name = "Cluster Admin",
         description = "Cluster administrative actions such as leader election, partition reassignment and log dirs")
@@ -24,9 +23,11 @@ import org.springframework.web.bind.annotation.*;
 public class ClusterAdminController {
 
     private final ClusterAdminService service;
+    private final java.util.UUID defaultClusterId;
 
-    public ClusterAdminController(ClusterAdminService service) {
+    public ClusterAdminController(ClusterAdminService service, java.util.UUID defaultClusterId) {
         this.service = service;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @PostMapping("/leader-election")
@@ -36,9 +37,8 @@ public class ClusterAdminController {
             tags = {"Cluster Admin"})
     @ApiResponses({@ApiResponse(responseCode = "204", description = "Leader election scheduled")})
     public ResponseEntity<Void> electLeaders(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Valid @org.springframework.web.bind.annotation.RequestBody LeaderElectionRequest request) {
-        service.electLeaders(clusterId, request);
+        service.electLeaders(defaultClusterId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -58,9 +58,8 @@ public class ClusterAdminController {
                                 schema = @Schema(implementation = PartitionReassignmentRequest.class)))
     })
     public ResponseEntity<Void> alterPartitionReassignments(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Valid @org.springframework.web.bind.annotation.RequestBody PartitionReassignmentRequest request) {
-        service.alterPartitionReassignments(clusterId, request);
+        service.alterPartitionReassignments(defaultClusterId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -78,9 +77,8 @@ public class ClusterAdminController {
                                 mediaType = "application/json",
                                 schema = @Schema(implementation = PartitionReassignmentResponse.class)))
     })
-    public List<PartitionReassignmentResponse> listPartitionReassignments(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId) {
-        return service.listPartitionReassignments(clusterId);
+    public List<PartitionReassignmentResponse> listPartitionReassignments() {
+        return service.listPartitionReassignments(defaultClusterId);
     }
 
     @GetMapping("/log-dirs")
@@ -98,9 +96,8 @@ public class ClusterAdminController {
                                 schema = @Schema(implementation = BrokerLogDirResponse.class)))
     })
     public List<BrokerLogDirResponse> describeLogDirs(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "List of broker ids to query") @RequestParam List<Integer> brokerIds) {
-        return service.describeLogDirs(clusterId, brokerIds);
+        return service.describeLogDirs(defaultClusterId, brokerIds);
     }
 
     @PutMapping("/log-dirs")
@@ -110,9 +107,8 @@ public class ClusterAdminController {
             tags = {"Cluster Admin"})
     @ApiResponses({@ApiResponse(responseCode = "204", description = "Replica log dirs altered")})
     public ResponseEntity<Void> alterReplicaLogDirs(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Valid @org.springframework.web.bind.annotation.RequestBody ReplicaLogDirRequest request) {
-        service.alterReplicaLogDirs(clusterId, request);
+        service.alterReplicaLogDirs(defaultClusterId, request);
         return ResponseEntity.noContent().build();
     }
 }

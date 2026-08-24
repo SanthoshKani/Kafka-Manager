@@ -5,6 +5,7 @@ services:
     container_name: controller1
     ports:
       - "19093:9093"
+      - "19101:9101"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: controller
@@ -13,6 +14,9 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      JMX_PORT: 9101
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller1-data:/var/lib/kafka/data
@@ -20,14 +24,15 @@ services:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093 || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 120s
 
   controller2:
     image: apache/kafka:4.2.0
     container_name: controller2
     ports:
       - "29093:9093"
+      - "19102:9101"
     environment:
       KAFKA_NODE_ID: 2
       KAFKA_PROCESS_ROLES: controller
@@ -36,6 +41,9 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      JMX_PORT: 9101
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller2-data:/var/lib/kafka/data
@@ -43,14 +51,15 @@ services:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093 || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 120s
 
   controller3:
     image: apache/kafka:4.2.0
     container_name: controller3
     ports:
       - "39093:9093"
+      - "19103:9101"
     environment:
       KAFKA_NODE_ID: 3
       KAFKA_PROCESS_ROLES: controller
@@ -59,6 +68,9 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@controller1:9093,2@controller2:9093,3@controller3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      JMX_PORT: 9101
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller3-data:/var/lib/kafka/data
@@ -66,8 +78,8 @@ services:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9093 || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 120s
 
   # Brokers (data plane only)
   broker1:
@@ -75,6 +87,7 @@ services:
     container_name: broker1
     ports:
       - "19092:9092"
+      - "19111:9101"
     environment:
       KAFKA_NODE_ID: 101
       KAFKA_PROCESS_ROLES: broker
@@ -88,6 +101,9 @@ services:
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      JMX_PORT: 9101
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker1-data:/var/lib/kafka/data
@@ -110,6 +126,7 @@ services:
     container_name: broker2
     ports:
       - "29092:9092"
+      - "19112:9101"
     environment:
       KAFKA_NODE_ID: 102
       KAFKA_PROCESS_ROLES: broker
@@ -123,6 +140,9 @@ services:
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      JMX_PORT: 9101
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker2-data:/var/lib/kafka/data
@@ -145,6 +165,7 @@ services:
     container_name: broker3
     ports:
       - "39092:9092"
+      - "19113:9101"
     environment:
       KAFKA_NODE_ID: 103
       KAFKA_PROCESS_ROLES: broker
@@ -158,6 +179,9 @@ services:
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      JMX_PORT: 9101
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker3-data:/var/lib/kafka/data
@@ -185,9 +209,9 @@ services:
       broker3:
         condition: service_healthy
     environment:
-      KAFKA_MANAGER_MASTER_KEY_BASE64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-      KAFKA_MANAGER_BASIC_AUTH_USERNAME: admin
-      KAFKA_MANAGER_BASIC_AUTH_PASSWORD: admin
+      SPRING_PROFILES_ACTIVE: local
+      BOOTSTRAP_SERVERS_CONFIG: broker1:9092,broker2:9092,broker3:9092
+      APP_METRICS_ADMIN_DERIVED_POLL_INTERVAL: 60s
     ports:
       - "8080:8080"
 

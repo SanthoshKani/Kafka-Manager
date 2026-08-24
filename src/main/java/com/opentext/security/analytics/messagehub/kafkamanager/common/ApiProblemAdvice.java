@@ -21,36 +21,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiProblemAdvice {
 
-    @ExceptionHandler(ApiException.class)
-    ProblemDetail handleApiException(ApiException exception, HttpServletRequest request) {
-        return problem(
-                exception.getStatus(),
-                request,
-                exception.getSafeDetail(),
-                exception.getErrorCode().name(),
-                null);
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    ProblemDetail handleValidation(MethodArgumentNotValidException exception, HttpServletRequest request) {
-        Map<String, String> errors = new LinkedHashMap<>();
-        for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
-            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
-        }
-        return problem(
-                HttpStatus.BAD_REQUEST, request, "Validation failed", ApiErrorCode.VALIDATION_ERROR.name(), errors);
-    }
-
-    @ExceptionHandler(Exception.class)
-    ProblemDetail handleUnexpected(Exception exception, HttpServletRequest request) {
-        return problem(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                request,
-                "Unexpected server error",
-                ApiErrorCode.OPERATION_FAILED.name(),
-                null);
-    }
-
     private static ProblemDetail problem(
             HttpStatus status,
             HttpServletRequest request,
@@ -72,5 +42,96 @@ public class ApiProblemAdvice {
             problem.setProperty("validationErrors", validationErrors);
         }
         return problem;
+    }
+
+    @ExceptionHandler(ApiException.class)
+    ProblemDetail handleApiException(ApiException exception, HttpServletRequest request) {
+        return problem(
+                exception.getStatus(),
+                request,
+                exception.getSafeDetail(),
+                exception.getErrorCode().name(),
+                null);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ProblemDetail handleValidation(MethodArgumentNotValidException exception, HttpServletRequest request) {
+        Map<String, String> errors = new LinkedHashMap<>();
+        for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
+            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
+        }
+        return problem(
+                HttpStatus.BAD_REQUEST, request, "Validation failed", ApiErrorCode.VALIDATION_ERROR.name(), errors);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    ProblemDetail handleNoResourceFound(
+            org.springframework.web.servlet.resource.NoResourceFoundException exception, HttpServletRequest request) {
+        return problem(HttpStatus.NOT_FOUND, request, exception.getMessage(), ApiErrorCode.NOT_FOUND.name(), null);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.NoHandlerFoundException.class)
+    ProblemDetail handleNoHandlerFound(
+            org.springframework.web.servlet.NoHandlerFoundException exception, HttpServletRequest request) {
+        return problem(HttpStatus.NOT_FOUND, request, exception.getMessage(), ApiErrorCode.NOT_FOUND.name(), null);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    ProblemDetail handleMethodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                request,
+                exception.getMessage(),
+                ApiErrorCode.OPERATION_FAILED.name(),
+                null);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    ProblemDetail handleMediaTypeNotSupported(
+            org.springframework.web.HttpMediaTypeNotSupportedException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                request,
+                exception.getMessage(),
+                ApiErrorCode.OPERATION_FAILED.name(),
+                null);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    ProblemDetail handleMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                request,
+                "Malformed JSON request or unreadable message body",
+                ApiErrorCode.VALIDATION_ERROR.name(),
+                null);
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    ProblemDetail handleMissingParam(
+            org.springframework.web.bind.MissingServletRequestParameterException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST, request, exception.getMessage(), ApiErrorCode.VALIDATION_ERROR.name(), null);
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    ProblemDetail handleTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST, request, exception.getMessage(), ApiErrorCode.VALIDATION_ERROR.name(), null);
+    }
+
+    @ExceptionHandler(Exception.class)
+    ProblemDetail handleUnexpected(Exception exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                request,
+                "Unexpected server error",
+                ApiErrorCode.OPERATION_FAILED.name(),
+                null);
     }
 }

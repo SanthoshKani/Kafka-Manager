@@ -12,20 +12,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/brokers")
+@RequestMapping("/api/v1/brokers")
 @Tag(name = "Brokers", description = "Broker management and broker-level configs")
 @SecurityRequirement(name = "bearerAuth")
 public class BrokerController {
 
     private final BrokerService brokerService;
+    private final java.util.UUID defaultClusterId;
 
-    public BrokerController(BrokerService brokerService) {
+    public BrokerController(BrokerService brokerService, java.util.UUID defaultClusterId) {
         this.brokerService = brokerService;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -42,9 +43,8 @@ public class BrokerController {
                                 mediaType = "application/json",
                                 schema = @Schema(implementation = BrokerSummaryResponse.class)))
     })
-    public List<BrokerSummaryResponse> list(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId) {
-        return brokerService.list(clusterId);
+    public List<BrokerSummaryResponse> list() {
+        return brokerService.list(defaultClusterId);
     }
 
     @GetMapping("/{brokerId}/configs")
@@ -60,9 +60,8 @@ public class BrokerController {
         @ApiResponse(responseCode = "404", description = "Broker not found")
     })
     public Map<String, String> describeConfigs(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Broker id", required = true) @PathVariable int brokerId) {
-        return brokerService.describeConfigs(clusterId, brokerId);
+        return brokerService.describeConfigs(defaultClusterId, brokerId);
     }
 
     @PatchMapping("/{brokerId}/configs")
@@ -81,10 +80,9 @@ public class BrokerController {
                                 schema = @Schema(implementation = BrokerConfigMutationRequest.class)))
     })
     public ResponseEntity<Void> alterConfigs(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Broker id", required = true) @PathVariable int brokerId,
             @Valid @org.springframework.web.bind.annotation.RequestBody BrokerConfigMutationRequest request) {
-        brokerService.alterConfigs(clusterId, brokerId, request);
+        brokerService.alterConfigs(defaultClusterId, brokerId, request);
         return ResponseEntity.noContent().build();
     }
 }

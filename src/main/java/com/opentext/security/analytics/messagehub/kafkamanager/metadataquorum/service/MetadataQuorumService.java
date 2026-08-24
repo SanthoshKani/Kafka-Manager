@@ -9,6 +9,12 @@ import java.util.UUID;
 import org.apache.kafka.clients.admin.Admin;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service to retrieve metadata quorum (KRaft) information from a Kafka cluster.
+ *
+ * <p>Exposes leader id/epoch, high watermark and lists of voter/observer node statuses. This is
+ * only applicable to KRaft-enabled clusters and uses the AdminClient describeMetadataQuorum API.
+ */
 @Service
 public class MetadataQuorumService {
 
@@ -20,6 +26,12 @@ public class MetadataQuorumService {
         this.properties = properties;
     }
 
+    /**
+     * Retrieve current metadata quorum information for the cluster.
+     *
+     * @param clusterId the target Kafka cluster id
+     * @return {@link MetadataQuorumResponse} with leader, epoch, high watermark, voters and observers
+     */
     public MetadataQuorumResponse get(UUID clusterId) {
         return adminExecutionService.execute(
                 clusterId, "describe-metadata-quorum", properties.admin().defaultRequestTimeout(), handle -> {
