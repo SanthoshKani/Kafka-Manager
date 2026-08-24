@@ -15,7 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
  * Exposes the latest Admin-derived structural Kafka metrics.
  */
 @RestController
-@RequestMapping("/api/v1/metrics/structural")
+// This controller exposes the same conceptual endpoint as ClusterStructuralMetricsController.
+// Keep a distinct path to avoid mapping collisions. Prefer ClusterStructuralMetricsController for
+// the canonical '/api/v1/metrics/structural' endpoint.
+@RequestMapping("/api/v1/metrics/structural/service")
 @Tag(name = "Structural Metrics", description = "Cluster-health metrics derived from Kafka AdminClient metadata")
 @SecurityRequirement(name = "bearerAuth")
 public class StructuralMetricsController {
