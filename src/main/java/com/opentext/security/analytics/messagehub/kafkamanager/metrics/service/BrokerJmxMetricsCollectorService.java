@@ -3,22 +3,23 @@ package com.opentext.security.analytics.messagehub.kafkamanager.metrics.service;
 import com.opentext.security.analytics.messagehub.kafkamanager.config.KafkaManagerProperties;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.management.MBeanServerConnection;
-import javax.management.ObjectName;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+
+import javax.management.MBeanServerConnection;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
+import java.io.IOException;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Collects Kafka broker-side JMX metrics for request rates, latencies and topic throughput.
@@ -290,7 +291,19 @@ public class BrokerJmxMetricsCollectorService {
     private JMXConnector connect(KafkaManagerProperties.BrokerJmxTarget target) throws IOException {
         JMXServiceURL url =
                 new JMXServiceURL("service:jmx:rmi:///jndi/rmi://" + target.host() + ":" + target.port() + "/jmxrmi");
-        return JMXConnectorFactory.connect(url, Collections.emptyMap());
+        try {
+            return JMXConnectorFactory.connect(url, Collections.emptyMap());
+        } catch (IOException e) {
+            // Enhanced diagnostic logging: include target name/host/port and full stacktrace
+            log.warn(
+                    "Failed to connect to broker JMX target '{}' at {}:{} - {}",
+                    target.name(),
+                    target.host(),
+                    target.port(),
+                    e.getMessage(),
+                    e);
+            throw e;
+        }
     }
 
     private double readFirstAvailableMetric(

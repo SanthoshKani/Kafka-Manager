@@ -16,7 +16,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: controller1
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP:-10.71.135.15}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller1-data:/var/lib/kafka/data
@@ -43,7 +43,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: controller2
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP:-10.71.135.15}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller2-data:/var/lib/kafka/data
@@ -70,7 +70,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: controller3
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP:-10.71.135.15}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - controller3-data:/var/lib/kafka/data
@@ -103,7 +103,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: broker1
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP:-10.71.135.15}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker1-data:/var/lib/kafka/data
@@ -142,7 +142,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: broker2
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP:-10.71.135.15}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker2-data:/var/lib/kafka/data
@@ -181,7 +181,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       JMX_PORT: 9101
       KAFKA_JMX_PORT: 9101
-      KAFKA_JMX_HOSTNAME: broker3
+      KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP:-10.71.135.15}
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - broker3-data:/var/lib/kafka/data

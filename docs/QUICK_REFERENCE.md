@@ -45,6 +45,30 @@ docker-compose logs -f kafka-manager
 docker-compose build --no-cache
 ```
 
+## Broker JMX (Docker) — quick setup
+
+When running the included Docker compose files and collecting broker JMX metrics from the host, follow these guidelines:
+
+- Ensure each broker container sets a fixed JMX port and advertises a reachable hostname (the kafka-manager collector connects to the host:port you map). Example environment variables to add to each broker in `docker-compose`:
+
+```yaml
+KAFKA_HOST_IP: 10.71.135.15
+KAFKA_JMX_PORT: 9101
+KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}
+KAFKA_JMX_OPTS: >-
+  -Dcom.sun.management.jmxremote=true
+  -Dcom.sun.management.jmxremote.authenticate=false   # dev only
+  -Dcom.sun.management.jmxremote.ssl=false            # dev only
+  -Dcom.sun.management.jmxremote.port=9101
+  -Dcom.sun.management.jmxremote.rmi.port=9101
+  -Djava.rmi.server.hostname=${KAFKA_HOST_IP}
+```
+
+- Map a host port to the container JMX port (e.g. `19111:9101`) and use that host:port in `application-local.yml` targets so the `BrokerJmxMetricsCollectorService` connects to the correct endpoint.
+
+- Security note: disabling JMX authentication/SSL is only acceptable for isolated development. For production use, either enable JMX auth+TLS or run the Prometheus JMX exporter (or Jolokia) inside the broker and scrape over HTTP with proper access controls.
+
+
 ## API Endpoints Quick Reference
 
 ## Adding a New Domain Feature

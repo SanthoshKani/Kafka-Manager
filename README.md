@@ -224,3 +224,34 @@ POST   /operations/{id}/cancel                              # Cancel pending ope
 - `openapi.yaml` is the exported contract snapshot for the REST API.
 - HikariCP pool tuned for production (leak detection, validation, max lifetime).
 - Structured logging with correlation IDs via `CorrelationIdFilter`.
+
+## Broker JMX (Docker) — setup & security
+
+- When running brokers in Docker and exposing JMX over the host, set a stable host address that the broker will advertise for RMI (the collector must be able to reach this address). Example environment variables for each broker/container:
+
+```yaml
+KAFKA_HOST_IP: 10.71.135.15            # host IP reachable by kafka-manager
+KAFKA_JMX_PORT: 9101                   # container JMX port (fixed)
+KAFKA_JMX_HOSTNAME: ${KAFKA_HOST_IP}   # ensure the RMI stub advertises a reachable address
+KAFKA_JMX_OPTS: >-
+  -Dcom.sun.management.jmxremote=true
+  -Dcom.sun.management.jmxremote.authenticate=false   # local/dev only; enable auth in prod
+  -Dcom.sun.management.jmxremote.ssl=false            # local/dev only; enable SSL in prod
+  -Dcom.sun.management.jmxremote.port=9101
+  -Dcom.sun.management.jmxremote.rmi.port=9101
+  -Djava.rmi.server.hostname=${KAFKA_HOST_IP}
+```
+
+- Map a host port to the container JMX port (example in docker-compose: `19111:9101`). Configure `application-local.yml` to use the host IP and mapped port (for example `10.71.135.15:19111`) so the `BrokerJmxMetricsCollectorService` connects to the correct TCP endpoint.
+
+- Security caveats:
+  - The `-Dcom.sun.management.jmxremote.authenticate=false` and `-Dcom.sun.management.jmxremote.ssl=false` options are only acceptable for isolated development environments. Do NOT use these settings in production as they expose an unauthenticated RMI interface.
+  - For production, enable JMX authentication and TLS (or use a Prometheus JMX exporter or Jolokia inside the container to expose metrics over an authenticated/HTTP endpoint). A safer pattern is to run the Prometheus JMX exporter as a Java agent inside the broker and scrape over HTTP (single TCP port) rather than relying on RMI.
+  - Ensure firewall rules only allow trusted hosts to reach the JMX ports, and prefer network-level restrictions (VPC/subnet, host firewall) in addition to JMX authentication.
+
+- If you encounter "no metrics" or connection failures from the application, check:
+  1. The host:port is reachable from the kafka-manager host (telnet or curl is sufficient for a TCP check).
+  2. `java.rmi.server.hostname` inside the broker is set to the host address the collector uses to connect.
+  3. The container uses a fixed `com.sun.management.jmxremote.rmi.port` to avoid ephemeral ports.
+  4. Broker logs for JMX binding errors and kafka-manager logs for connector exceptions.
+
