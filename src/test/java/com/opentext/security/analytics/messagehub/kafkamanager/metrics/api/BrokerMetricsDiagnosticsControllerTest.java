@@ -62,15 +62,15 @@ class BrokerMetricsDiagnosticsControllerTest {
                 List.of(),
                 false,
                 100);
-        var controller = new BrokerMetricsDiagnosticsController(mapper, store, props, sampleStore);
+        UUID clusterId = UUID.randomUUID();
+        var controller = new BrokerMetricsDiagnosticsController(mapper, store, props, sampleStore, clusterId);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ApiProblemAdvice())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
                         JsonMapper.builderWithJackson2Defaults().build()))
                 .build();
 
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics", clusterId, 1))
+        mockMvc.perform(get("/api/v1/brokers/{brokerId}/metrics/diagnostics", 1))
                 .andExpect(status().isForbidden());
     }
 
@@ -90,7 +90,8 @@ class BrokerMetricsDiagnosticsControllerTest {
                 List.of(),
                 true,
                 100);
-        var controller = new BrokerMetricsDiagnosticsController(mapper, store, props, sampleStore);
+        UUID clusterId = UUID.randomUUID();
+        var controller = new BrokerMetricsDiagnosticsController(mapper, store, props, sampleStore, clusterId);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ApiProblemAdvice())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -103,8 +104,7 @@ class BrokerMetricsDiagnosticsControllerTest {
         org.springframework.security.core.context.SecurityContextHolder.getContext()
                 .setAuthentication(auth);
 
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics", clusterId, 1))
+        mockMvc.perform(get("/api/v1/brokers/{brokerId}/metrics/diagnostics", 1))
                 .andExpect(status().isForbidden());
     }
 
@@ -124,7 +124,8 @@ class BrokerMetricsDiagnosticsControllerTest {
                 List.of(),
                 true,
                 100);
-        var controller = new BrokerMetricsDiagnosticsController(mapper, store, props, sampleStore);
+        UUID clusterId = UUID.randomUUID();
+        var controller = new BrokerMetricsDiagnosticsController(mapper, store, props, sampleStore, clusterId);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ApiProblemAdvice())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
@@ -137,8 +138,8 @@ class BrokerMetricsDiagnosticsControllerTest {
         org.springframework.security.core.context.SecurityContextHolder.getContext()
                 .setAuthentication(auth);
 
-        UUID clusterId = UUID.randomUUID();
         // populate admin store with a snapshot so cluster exists
+        // Note: snapshot clusterId must match controller's defaultClusterId
         Instant now = Instant.now();
         var snapshot =
                 new com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminClientMetricsSnapshot(
@@ -162,7 +163,7 @@ class BrokerMetricsDiagnosticsControllerTest {
                                         .BrokerLeaderCount(3, 2)));
         store.saveSuccessful(snapshot);
 
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics", clusterId, 1))
+        mockMvc.perform(get("/api/v1/brokers/{brokerId}/metrics/diagnostics", 1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recognizedMetrics").isArray())
                 .andExpect(jsonPath("$.adminSnapshot.brokerCount").value(3));

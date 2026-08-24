@@ -11,20 +11,21 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/consumer-groups")
+@RequestMapping("/api/v1/consumer-groups")
 @Tag(name = "Consumer Groups", description = "Manage consumer groups: list, describe, delete, offsets")
 @SecurityRequirement(name = "bearerAuth")
 public class ConsumerGroupController {
 
     private final ConsumerGroupService service;
+    private final java.util.UUID defaultClusterId;
 
-    public ConsumerGroupController(ConsumerGroupService service) {
+    public ConsumerGroupController(ConsumerGroupService service, java.util.UUID defaultClusterId) {
         this.service = service;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -41,9 +42,8 @@ public class ConsumerGroupController {
                                 mediaType = "application/json",
                                 schema = @Schema(implementation = ConsumerGroupSummaryResponse.class)))
     })
-    public List<ConsumerGroupSummaryResponse> list(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId) {
-        return service.list(clusterId);
+    public List<ConsumerGroupSummaryResponse> list() {
+        return service.list(defaultClusterId);
     }
 
     @GetMapping("/{groupId}")
@@ -62,9 +62,8 @@ public class ConsumerGroupController {
         @ApiResponse(responseCode = "404", description = "Consumer group not found")
     })
     public ConsumerGroupDetailResponse describe(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Consumer group id", required = true) @PathVariable String groupId) {
-        return service.describe(clusterId, groupId);
+        return service.describe(defaultClusterId, groupId);
     }
 
     @DeleteMapping("/{groupId}")
@@ -77,9 +76,8 @@ public class ConsumerGroupController {
         @ApiResponse(responseCode = "404", description = "Consumer group not found")
     })
     public ResponseEntity<Void> delete(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Consumer group id", required = true) @PathVariable String groupId) {
-        service.delete(clusterId, groupId);
+        service.delete(defaultClusterId, groupId);
         return ResponseEntity.noContent().build();
     }
 
@@ -99,10 +97,9 @@ public class ConsumerGroupController {
                                 schema = @Schema(implementation = ConsumerGroupOffsetUpdateRequest.class)))
     })
     public ResponseEntity<Void> alterOffsets(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Consumer group id", required = true) @PathVariable String groupId,
             @Valid @org.springframework.web.bind.annotation.RequestBody ConsumerGroupOffsetUpdateRequest request) {
-        service.alterOffsets(clusterId, groupId, request);
+        service.alterOffsets(defaultClusterId, groupId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -122,10 +119,9 @@ public class ConsumerGroupController {
                                 schema = @Schema(implementation = ConsumerGroupMemberRemovalRequest.class)))
     })
     public ResponseEntity<Void> removeMembers(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Consumer group id", required = true) @PathVariable String groupId,
             @Valid @org.springframework.web.bind.annotation.RequestBody ConsumerGroupMemberRemovalRequest request) {
-        service.removeMembers(clusterId, groupId, request);
+        service.removeMembers(defaultClusterId, groupId, request);
         return ResponseEntity.noContent().build();
     }
 }

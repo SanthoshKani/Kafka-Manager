@@ -6,15 +6,12 @@ import com.opentext.security.analytics.messagehub.kafkamanager.common.ResourceNo
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminClientMetricsSnapshot;
 import com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminDerivedMetricsStore;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,15 +19,17 @@ import org.springframework.web.bind.annotation.RestController;
  * Cluster-scoped structural metrics endpoint. Returns cached data only and never invokes AdminClient.
  */
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/metrics/structural")
+@RequestMapping("/api/v1/metrics/structural")
 @Tag(name = "Structural Metrics", description = "Cluster-health metrics derived from Kafka AdminClient metadata")
 @SecurityRequirement(name = "bearerAuth")
 public class ClusterStructuralMetricsController {
 
     private final AdminDerivedMetricsStore store;
+    private final java.util.UUID defaultClusterId;
 
-    public ClusterStructuralMetricsController(AdminDerivedMetricsStore store) {
+    public ClusterStructuralMetricsController(AdminDerivedMetricsStore store, java.util.UUID defaultClusterId) {
         this.store = store;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -45,14 +44,13 @@ public class ClusterStructuralMetricsController {
         @ApiResponse(responseCode = "404", description = "Cluster not found"),
         @ApiResponse(responseCode = "503", description = "Metrics not yet available")
     })
-    public AdminClientMetricsSnapshot current(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId) {
+    public AdminClientMetricsSnapshot current() {
         // If the store has no entry for this cluster we treat it as unknown
-        if (!store.exists(clusterId)) {
+        if (!store.exists(defaultClusterId)) {
             throw new ResourceNotFoundException("Cluster not found");
         }
 
-        AdminClientMetricsSnapshot snapshot = store.getCurrent(clusterId);
+        AdminClientMetricsSnapshot snapshot = store.getCurrent(defaultClusterId);
         // If we have never had a successful collection, return 503 Service Unavailable
         if (snapshot.lastSuccessfulCollectionAt() == null) {
             throw new ApiException(

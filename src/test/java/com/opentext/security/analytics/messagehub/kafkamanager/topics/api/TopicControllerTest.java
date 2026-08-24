@@ -32,10 +32,12 @@ class TopicControllerTest {
     TopicService topicService;
 
     private MockMvc mockMvc;
+    private UUID clusterId;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new TopicController(topicService))
+        clusterId = UUID.randomUUID();
+        mockMvc = MockMvcBuilders.standaloneSetup(new TopicController(topicService, clusterId))
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
                         JsonMapper.builderWithJackson2Defaults().build()))
                 .build();
@@ -43,30 +45,26 @@ class TopicControllerTest {
 
     @Test
     void describesTopicConfigs() throws Exception {
-        UUID clusterId = UUID.randomUUID();
         when(topicService.describeConfigs(eq(clusterId), eq(TEST_TOPIC_NAME)))
                 .thenReturn(Map.of("cleanup.policy", "delete"));
 
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/topics/{topicName}/configs", clusterId, TEST_TOPIC_NAME))
+        mockMvc.perform(get("/api/v1/topics/{topicName}/configs", TEST_TOPIC_NAME))
                 .andExpect(status().isOk())
                 .andExpect(content().json("{\"cleanup.policy\":\"delete\"}"));
     }
 
     @Test
     void createsPartitions() throws Exception {
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(post("/api/v1/clusters/{clusterId}/topics/{topicName}/partitions", clusterId, TEST_TOPIC_NAME)
+        mockMvc.perform(post("/api/v1/topics/{topicName}/partitions", TEST_TOPIC_NAME)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new TopicPartitionExpansionRequest(6, null))))
                 .andExpect(status().isNoContent());
-
         verify(topicService).createPartitions(eq(clusterId), eq(TEST_TOPIC_NAME), any());
     }
 
     @Test
     void altersTopicConfigs() throws Exception {
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(patch("/api/v1/clusters/{clusterId}/topics/{topicName}/configs", clusterId, TEST_TOPIC_NAME)
+        mockMvc.perform(patch("/api/v1/topics/{topicName}/configs", TEST_TOPIC_NAME)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(
                                 new TopicConfigMutationBatchRequest(java.util.List.of(new TopicConfigMutationRequest(

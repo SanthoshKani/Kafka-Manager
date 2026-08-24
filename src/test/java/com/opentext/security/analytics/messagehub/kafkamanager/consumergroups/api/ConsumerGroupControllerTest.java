@@ -30,42 +30,36 @@ class ConsumerGroupControllerTest {
     ConsumerGroupService service;
 
     private MockMvc mockMvc;
+    private UUID clusterId;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new ConsumerGroupController(service))
+        clusterId = UUID.randomUUID();
+        mockMvc = MockMvcBuilders.standaloneSetup(new ConsumerGroupController(service, clusterId))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
     }
 
     @Test
     void deletesConsumerGroup() throws Exception {
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(delete("/api/v1/clusters/{clusterId}/consumer-groups/{groupId}", clusterId, TEST_GROUP_ID))
+        mockMvc.perform(delete("/api/v1/consumer-groups/{groupId}", TEST_GROUP_ID))
                 .andExpect(status().isNoContent());
-
         verify(service).delete(eq(clusterId), eq(TEST_GROUP_ID));
     }
 
     @Test
     void altersConsumerGroupOffsets() throws Exception {
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(post("/api/v1/clusters/{clusterId}/consumer-groups/{groupId}/offsets", clusterId, TEST_GROUP_ID)
+        mockMvc.perform(post("/api/v1/consumer-groups/{groupId}/offsets", TEST_GROUP_ID)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new ConsumerGroupOffsetUpdateRequest(
                                 List.of(new ConsumerGroupOffsetUpdate(TEST_GROUP_ID, 0, 42L))))))
                 .andExpect(status().isNoContent());
-
         verify(service).alterOffsets(eq(clusterId), eq(TEST_GROUP_ID), any());
     }
 
     @Test
     void removesConsumerGroupMembers() throws Exception {
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(post(
-                                "/api/v1/clusters/{clusterId}/consumer-groups/{groupId}/members/remove",
-                                clusterId,
-                                TEST_GROUP_ID)
+        mockMvc.perform(post("/api/v1/consumer-groups/{groupId}/members/remove", TEST_GROUP_ID)
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(
                                 new ConsumerGroupMemberRemovalRequest(List.of("member-1")))))

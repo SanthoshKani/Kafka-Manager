@@ -16,15 +16,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/operations")
+@RequestMapping("/api/v1/operations")
 @Tag(name = "Operations", description = "Submit and query long-running operations")
 @SecurityRequirement(name = "bearerAuth")
 public class OperationController {
 
     private final OperationService operationService;
+    private final java.util.UUID defaultClusterId;
 
-    public OperationController(OperationService operationService) {
+    public OperationController(OperationService operationService, java.util.UUID defaultClusterId) {
         this.operationService = operationService;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @PostMapping
@@ -43,9 +45,8 @@ public class OperationController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public OperationDetailResponse submit(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Valid @org.springframework.web.bind.annotation.RequestBody SubmitOperationRequest request) {
-        return operationService.submit(clusterId, request);
+        return operationService.submit(defaultClusterId, request);
     }
 
     @GetMapping
@@ -63,10 +64,9 @@ public class OperationController {
                                 schema = @Schema(implementation = OperationSummaryResponse.class)))
     })
     public Page<OperationSummaryResponse> list(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Page number (zero-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
-        return operationService.list(clusterId, page, size);
+        return operationService.list(defaultClusterId, page, size);
     }
 
     @GetMapping("/{operationId}")

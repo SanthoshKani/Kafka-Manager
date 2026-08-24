@@ -49,14 +49,14 @@ class RuntimeMetricsControllerTest {
                 List.of(),
                 false,
                 100);
-        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props);
+        UUID clusterId = UUID.randomUUID();
+        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props, clusterId);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ApiProblemAdvice())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
                         JsonMapper.builderWithJackson2Defaults().build()))
                 .build();
 
-        UUID clusterId = UUID.randomUUID();
         Instant now = Instant.now();
         // admin snapshot with one broker
         var snap =
@@ -103,8 +103,7 @@ class RuntimeMetricsControllerTest {
         sampleStore.append(sPrev);
         sampleStore.append(sCurr);
 
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics", clusterId, 1)
-                        .param("window", "1m"))
+        mockMvc.perform(get("/api/v1/brokers/{brokerId}/metrics", 1).param("window", "1m"))
                 .andExpect(status().isOk());
     }
 
@@ -124,16 +123,15 @@ class RuntimeMetricsControllerTest {
                 List.of(),
                 false,
                 100);
-        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props);
+        UUID clusterId = UUID.randomUUID();
+        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props, clusterId);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ApiProblemAdvice())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
                         JsonMapper.builderWithJackson2Defaults().build()))
                 .build();
 
-        UUID clusterId = UUID.randomUUID();
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics", clusterId, 1)
-                        .param("window", "2m"))
+        mockMvc.perform(get("/api/v1/brokers/{brokerId}/metrics", 1).param("window", "2m"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -153,14 +151,14 @@ class RuntimeMetricsControllerTest {
                 List.of(),
                 false,
                 100);
-        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props);
+        UUID clusterId = UUID.randomUUID();
+        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props, clusterId);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ApiProblemAdvice())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
                         JsonMapper.builderWithJackson2Defaults().build()))
                 .build();
 
-        UUID clusterId = UUID.randomUUID();
         Instant now = Instant.now();
         var snap =
                 new com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminClientMetricsSnapshot(
@@ -227,7 +225,7 @@ class RuntimeMetricsControllerTest {
                 com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.MetricSourceBackend.PROMETHEUS,
                 null));
 
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/topics/{topic}/metrics", clusterId, topic)
+        mockMvc.perform(get("/api/v1/topics/{topic}/metrics", topic)
                         .param("window", "1m")
                         .param("perBroker", "true"))
                 .andExpect(status().isOk());
@@ -249,14 +247,14 @@ class RuntimeMetricsControllerTest {
                 List.of(),
                 false,
                 100);
-        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props);
+        UUID clusterId = UUID.randomUUID();
+        var controller = new RuntimeMetricsController(sampleStore, adminStore, mapper, props, clusterId);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new ApiProblemAdvice())
                 .setMessageConverters(new JacksonJsonHttpMessageConverter(
                         JsonMapper.builderWithJackson2Defaults().build()))
                 .build();
 
-        UUID clusterId = UUID.randomUUID();
         Instant now = Instant.now();
         var snap =
                 new com.opentext.security.analytics.messagehub.kafkamanager.metrics.domain.AdminClientMetricsSnapshot(
@@ -290,7 +288,6 @@ class RuntimeMetricsControllerTest {
                 com.opentext.security.analytics.messagehub.kafkamanager.metrics.runtime.MetricSourceBackend.PROMETHEUS,
                 null));
 
-        mockMvc.perform(get("/api/v1/clusters/{clusterId}/metrics", clusterId).param("window", "1m"))
-                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/metrics").param("window", "1m")).andExpect(status().isOk());
     }
 }

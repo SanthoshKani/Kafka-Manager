@@ -12,20 +12,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/topics")
+@RequestMapping("/api/v1/topics")
 @Tag(name = "Topics", description = "Topic management: list, describe, create, delete, configs, offsets")
 @SecurityRequirement(name = "bearerAuth")
 public class TopicController {
 
     private final TopicService topicService;
+    private final java.util.UUID defaultClusterId;
 
-    public TopicController(TopicService topicService) {
+    public TopicController(TopicService topicService, java.util.UUID defaultClusterId) {
         this.topicService = topicService;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -44,11 +45,10 @@ public class TopicController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public List<TopicSummaryResponse> list(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Include internal topics (true|false)") @RequestParam(defaultValue = "false")
                     boolean includeInternal,
             @Parameter(description = "Topic name prefix filter") @RequestParam(required = false) String prefix) {
-        return topicService.list(clusterId, includeInternal, prefix);
+        return topicService.list(defaultClusterId, includeInternal, prefix);
     }
 
     @GetMapping("/{topicName}")
@@ -67,9 +67,8 @@ public class TopicController {
         @ApiResponse(responseCode = "404", description = "Topic not found")
     })
     public TopicDetailResponse describe(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Topic name", required = true) @PathVariable String topicName) {
-        return topicService.describe(clusterId, topicName);
+        return topicService.describe(defaultClusterId, topicName);
     }
 
     @GetMapping("/{topicName}/configs")
@@ -85,9 +84,8 @@ public class TopicController {
         @ApiResponse(responseCode = "404", description = "Topic not found")
     })
     public Map<String, String> describeConfigs(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Topic name", required = true) @PathVariable String topicName) {
-        return topicService.describeConfigs(clusterId, topicName);
+        return topicService.describeConfigs(defaultClusterId, topicName);
     }
 
     @PostMapping
@@ -106,10 +104,8 @@ public class TopicController {
                                 schema = @Schema(implementation = TopicCreateRequest.class)))
     })
     public ResponseEntity<Void> create(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
-            @Valid @org.springframework.web.bind.annotation.RequestBody TopicCreateRequest request)
-            throws Exception {
-        topicService.create(clusterId, request);
+            @Valid @org.springframework.web.bind.annotation.RequestBody TopicCreateRequest request) throws Exception {
+        topicService.create(defaultClusterId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -123,11 +119,10 @@ public class TopicController {
         @ApiResponse(responseCode = "404", description = "Topic not found")
     })
     public ResponseEntity<Void> delete(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Topic name", required = true) @PathVariable String topicName,
             @Parameter(description = "Perform a dry-run (true|false)") @RequestParam(defaultValue = "false")
                     boolean dryRun) {
-        topicService.delete(clusterId, topicName, dryRun);
+        topicService.delete(defaultClusterId, topicName, dryRun);
         return ResponseEntity.noContent().build();
     }
 
@@ -147,14 +142,13 @@ public class TopicController {
         @ApiResponse(responseCode = "404", description = "Topic not found")
     })
     public List<TopicOffsetResponse> listOffsets(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Topic name", required = true) @PathVariable String topicName,
             @Parameter(description = "Lookup mode: EARLIEST|LATEST|TIMESTAMP") @RequestParam(defaultValue = "LATEST")
                     TopicOffsetLookupMode mode,
             @Parameter(description = "Timestamp for TIMESTAMP lookup mode (ms since epoch)")
                     @RequestParam(required = false)
                     Long timestamp) {
-        return topicService.listOffsets(clusterId, topicName, mode, timestamp);
+        return topicService.listOffsets(defaultClusterId, topicName, mode, timestamp);
     }
 
     @PostMapping("/{topicName}/records/delete")
@@ -173,10 +167,9 @@ public class TopicController {
                                 schema = @Schema(implementation = TopicRecordDeleteRequest.class)))
     })
     public ResponseEntity<Void> deleteRecords(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Topic name", required = true) @PathVariable String topicName,
             @Valid @org.springframework.web.bind.annotation.RequestBody TopicRecordDeleteRequest request) {
-        topicService.deleteRecords(clusterId, topicName, request);
+        topicService.deleteRecords(defaultClusterId, topicName, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -196,10 +189,9 @@ public class TopicController {
                                 schema = @Schema(implementation = TopicPartitionExpansionRequest.class)))
     })
     public ResponseEntity<Void> createPartitions(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Topic name", required = true) @PathVariable String topicName,
             @Valid @org.springframework.web.bind.annotation.RequestBody TopicPartitionExpansionRequest request) {
-        topicService.createPartitions(clusterId, topicName, request);
+        topicService.createPartitions(defaultClusterId, topicName, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -219,10 +211,9 @@ public class TopicController {
                                 schema = @Schema(implementation = TopicConfigMutationBatchRequest.class)))
     })
     public ResponseEntity<Void> alterConfigs(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Topic name", required = true) @PathVariable String topicName,
             @Valid @org.springframework.web.bind.annotation.RequestBody TopicConfigMutationBatchRequest request) {
-        topicService.alterConfigs(clusterId, topicName, request);
+        topicService.alterConfigs(defaultClusterId, topicName, request);
         return ResponseEntity.noContent().build();
     }
 }

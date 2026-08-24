@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Administrator-only diagnostics for recognized runtime metric names for a single broker.
  */
 @RestController
-@RequestMapping("/api/v1/clusters/{clusterId}/brokers/{brokerId}/metrics/diagnostics")
+@RequestMapping("/api/v1/brokers/{brokerId}/metrics/diagnostics")
 @Tag(name = "Metrics Diagnostics", description = "Diagnostic information about recognized runtime metric names")
 @SecurityRequirement(name = "bearerAuth")
 public class BrokerMetricsDiagnosticsController {
@@ -41,16 +41,19 @@ public class BrokerMetricsDiagnosticsController {
     private final AdminDerivedMetricsStore adminStore;
     private final PrometheusScrapeProperties properties;
     private final RuntimeMetricSampleStore sampleStore;
+    private final java.util.UUID defaultClusterId;
 
     public BrokerMetricsDiagnosticsController(
             MetricMapper mapper,
             AdminDerivedMetricsStore adminStore,
             PrometheusScrapeProperties properties,
-            RuntimeMetricSampleStore sampleStore) {
+            RuntimeMetricSampleStore sampleStore,
+            java.util.UUID defaultClusterId) {
         this.mapper = mapper;
         this.adminStore = adminStore;
         this.properties = properties;
         this.sampleStore = sampleStore;
+        this.defaultClusterId = defaultClusterId;
     }
 
     @GetMapping
@@ -61,7 +64,6 @@ public class BrokerMetricsDiagnosticsController {
         @ApiResponse(responseCode = "404", description = "Cluster not found")
     })
     public DiagnosticsResponse diagnostics(
-            @Parameter(description = "Cluster UUID", required = true) @PathVariable UUID clusterId,
             @Parameter(description = "Broker id", required = true) @PathVariable int brokerId) {
 
         // Feature gating: diagnostics disabled by default in production
@@ -76,7 +78,7 @@ public class BrokerMetricsDiagnosticsController {
         }
 
         // Ensure cluster exists in admin-derived store
-        if (!adminStore.exists(clusterId)) {
+        if (!adminStore.exists(defaultClusterId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "Cluster not found");
         }
 
@@ -95,7 +97,7 @@ public class BrokerMetricsDiagnosticsController {
                 })
                 .collect(Collectors.toList());
 
-        AdminClientMetricsSnapshot snapshot = adminStore.getCurrent(clusterId);
+        AdminClientMetricsSnapshot snapshot = adminStore.getCurrent(defaultClusterId);
 
         // Now build statuses for a small set of important canonical metrics (controller, leader elections, ISR, log
         // flush)
@@ -122,7 +124,7 @@ public class BrokerMetricsDiagnosticsController {
                             .collect(Collectors.toList());
 
                     // check runtime store for latest sample for this canonical name at the broker scope
-                    MetricIdentity id = new MetricIdentity(clusterId, brokerId, null, canonical);
+                    MetricIdentity id = new MetricIdentity(defaultClusterId, brokerId, null, canonical);
                     MetricSample latest = sampleStore.latest(id);
                     Instant lastSampleAt = latest == null ? null : latest.timestamp();
                     boolean fresh = lastSampleAt != null
@@ -156,7 +158,7 @@ public class BrokerMetricsDiagnosticsController {
                 })
                 .collect(Collectors.toList());
 
-        return new DiagnosticsResponse(clusterId, brokerId, Instant.now(), metrics, snapshot, statuses);
+        return new DiagnosticsResponse(defaultClusterId, brokerId, Instant.now(), metrics, snapshot, statuses);
     }
 
     private boolean isAdmin(Authentication auth) {

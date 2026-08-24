@@ -30,17 +30,20 @@ public class RuntimeMetricsController {
     private final MetricMapper mapper;
     private final PrometheusScrapeProperties properties;
     private final RateCalculator rateCalculator;
+    private final java.util.UUID defaultClusterId;
 
     public RuntimeMetricsController(
             RuntimeMetricSampleStore sampleStore,
             AdminDerivedMetricsStore adminStore,
             MetricMapper mapper,
-            PrometheusScrapeProperties properties) {
+            PrometheusScrapeProperties properties,
+            java.util.UUID defaultClusterId) {
         this.sampleStore = sampleStore;
         this.adminStore = adminStore;
         this.mapper = mapper;
         this.properties = properties;
         this.rateCalculator = new RateCalculator();
+        this.defaultClusterId = defaultClusterId;
     }
 
     private Duration parseWindow(String window) {
@@ -49,7 +52,7 @@ public class RuntimeMetricsController {
         throw new ApiException(HttpStatus.BAD_REQUEST, ApiErrorCode.VALIDATION_ERROR, "Unsupported window: " + window);
     }
 
-    @GetMapping("/clusters/{clusterId}/brokers/{brokerId}/metrics")
+    @GetMapping("/brokers/{brokerId}/metrics")
     @Operation(summary = "Get broker runtime metrics (aggregated)")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Broker metrics"),
@@ -57,18 +60,16 @@ public class RuntimeMetricsController {
         @ApiResponse(responseCode = "404", description = "Cluster not found")
     })
     public BrokerMetricsResponse brokerMetrics(
-            @PathVariable UUID clusterId,
-            @PathVariable int brokerId,
-            @RequestParam(name = "window", required = false) String window) {
+            @PathVariable int brokerId, @RequestParam(name = "window", required = false) String window) {
 
         Duration w = parseWindow(window);
-        if (!adminStore.exists(clusterId))
+        if (!adminStore.exists(defaultClusterId))
             throw new ApiException(HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "Cluster not found");
 
         Instant now = Instant.now();
         Instant windowStart = now.minus(w);
 
-        AdminClientMetricsSnapshot admin = adminStore.getCurrent(clusterId);
+        AdminClientMetricsSnapshot admin = adminStore.getCurrent(defaultClusterId);
 
         // list of canonical metrics to report at broker scope
         List<String> counters = List.of(
@@ -94,7 +95,7 @@ public class RuntimeMetricsController {
 
         // process counters -> derive per-minute rates
         for (String canonical : counters) {
-            MetricIdentity id = new MetricIdentity(clusterId, brokerId, null, canonical);
+            MetricIdentity id = new MetricIdentity(defaultClusterId, brokerId, null, canonical);
             MetricSample latest = sampleStore.latest(id);
             MetricSample earliest = sampleStore.earliestAtOrBefore(id, windowStart);
             MetricValue mv = new MetricValue(canonical, null, null, null, false, "UNAVAILABLE", null);
@@ -153,7 +154,7 @@ public class RuntimeMetricsController {
         // process gauges -> RollingGaugeAggregator
         RollingGaugeAggregator agg = new RollingGaugeAggregator(w);
         for (String canonical : gauges) {
-            MetricIdentity id = new MetricIdentity(clusterId, brokerId, null, canonical);
+            MetricIdentity id = new MetricIdentity(defaultClusterId, brokerId, null, canonical);
             List<MetricSample> samples = sampleStore.samplesInRange(id, windowStart, now);
             MetricValue mv = new MetricValue(canonical, null, null, null, false, "UNAVAILABLE", null);
             var ar = agg.aggregate(samples, now);
@@ -198,18 +199,17 @@ public class RuntimeMetricsController {
                 .orElse(null);
 
         return new BrokerMetricsResponse(
-                clusterId, brokerId, w.toString(), runtimeCollectedAt, admin.collectedAt(), values);
+                defaultClusterId, brokerId, w.toString(), runtimeCollectedAt, admin.collectedAt(), values);
     }
 
-    @GetMapping("/clusters/{clusterId}/topics/{topic}/metrics")
+    @GetMapping("/topics/{topic}/metrics")
     @Operation(summary = "Get topic aggregated metrics across brokers (cluster-topic)")
     public TopicMetricsResponse topicMetrics(
-            @PathVariable UUID clusterId,
             @PathVariable String topic,
             @RequestParam(name = "window", required = false) String window,
             @RequestParam(name = "perBroker", required = false) boolean perBroker) {
         Duration w = parseWindow(window);
-        if (!adminStore.exists(clusterId))
+        if (!adminStore.exists(defaultClusterId))
             throw new ApiException(HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "Cluster not found");
         Instant now = Instant.now();
         Instant windowStart = now.minus(w);
@@ -224,7 +224,7 @@ public class RuntimeMetricsController {
                 "bytes.rejected.total");
 
         // determine brokers from adminStore
-        AdminClientMetricsSnapshot admin = adminStore.getCurrent(clusterId);
+        AdminClientMetricsSnapshot admin = adminStore.getCurrent(defaultClusterId);
         List<Integer> brokers =
                 admin.brokerLeaderCounts().stream().map(b -> b.brokerId()).collect(Collectors.toList());
 
@@ -236,7 +236,7 @@ public class RuntimeMetricsController {
             boolean anyAvailable = false;
             boolean someInsufficient = false;
             for (int brokerId : brokers) {
-                MetricIdentity id = new MetricIdentity(clusterId, brokerId, topic, canonical);
+                MetricIdentity id = new MetricIdentity(defaultClusterId, brokerId, topic, canonical);
                 MetricSample latest = sampleStore.latest(id);
                 MetricSample earliest = sampleStore.earliestAtOrBefore(id, windowStart);
                 MetricValue mv;
@@ -296,19 +296,23 @@ public class RuntimeMetricsController {
         }
 
         return new TopicMetricsResponse(
-                clusterId, topic, w.toString(), admin.collectedAt(), aggregates, perBroker ? perBrokerMap : null);
+                defaultClusterId,
+                topic,
+                w.toString(),
+                admin.collectedAt(),
+                aggregates,
+                perBroker ? perBrokerMap : null);
     }
 
-    @GetMapping("/clusters/{clusterId}/metrics")
+    @GetMapping("/metrics")
     @Operation(summary = "Get cluster aggregated metrics")
-    public ClusterMetricsResponse clusterMetrics(
-            @PathVariable UUID clusterId, @RequestParam(name = "window", required = false) String window) {
+    public ClusterMetricsResponse clusterMetrics(@RequestParam(name = "window", required = false) String window) {
         Duration w = parseWindow(window);
-        if (!adminStore.exists(clusterId))
+        if (!adminStore.exists(defaultClusterId))
             throw new ApiException(HttpStatus.NOT_FOUND, ApiErrorCode.NOT_FOUND, "Cluster not found");
         Instant now = Instant.now();
         Instant windowStart = now.minus(w);
-        AdminClientMetricsSnapshot admin = adminStore.getCurrent(clusterId);
+        AdminClientMetricsSnapshot admin = adminStore.getCurrent(defaultClusterId);
 
         // expected brokers
         int expected = admin.brokerCount();
@@ -320,7 +324,7 @@ public class RuntimeMetricsController {
 
         // evaluate per-broker freshness using a simple metric: broker.leader.count latest sample
         for (int brokerId : brokers) {
-            MetricIdentity id = new MetricIdentity(clusterId, brokerId, null, "broker.leader.count");
+            MetricIdentity id = new MetricIdentity(defaultClusterId, brokerId, null, "broker.leader.count");
             MetricSample latest = sampleStore.latest(id);
             if (latest == null) {
                 unavailable++;
@@ -334,7 +338,7 @@ public class RuntimeMetricsController {
         // compose overall summary
         CollectionHealth health = new CollectionHealth(expected, fresh, stale, unavailable);
 
-        return new ClusterMetricsResponse(clusterId, admin.collectedAt(), Instant.now(), health, null);
+        return new ClusterMetricsResponse(defaultClusterId, admin.collectedAt(), Instant.now(), health, null);
     }
 
     // DTOs
